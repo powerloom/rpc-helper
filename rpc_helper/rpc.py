@@ -25,11 +25,11 @@ from web3 import Web3
 from web3._utils.events import get_event_data
 from web3.contract import AsyncContract
 
-from utils.default_logger import create_level_filter
-from utils.default_logger import default_logger
-from utils.default_logger import FORMAT
-from utils.exceptions import RPCException
-from utils.models.settings_model import RPCConfigBase
+from rpc_helper.utils.default_logger import create_level_filter
+from rpc_helper.utils.default_logger import default_logger
+from rpc_helper.utils.default_logger import FORMAT
+from rpc_helper.utils.exceptions import RPCException
+from rpc_helper.utils.models.settings_model import RPCConfigBase
 
 
 logger = default_logger.bind(module='RpcHelper')
