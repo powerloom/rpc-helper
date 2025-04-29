@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "rpc-helper"
+version = "0.1.0"
+description = "An asynchronous Python helper library for interacting with Ethereum RPC nodes, featuring retry logic and multi-node support."
+authors = ["Seth <seth@powerloom.io>"]
+license = "Apache-2.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10.13"
+web3 = "6.17.1"
+tenacity = "^8.2.2"
+httpx = "^0.24.1"
+loguru = "^0.7.0"
+pydantic = "1.10.21"
+
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
