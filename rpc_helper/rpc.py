@@ -465,6 +465,27 @@ class RpcHelper(object):
 
         # Start with node index 0
         return await f(node_idx=0)
+    
+    async def get_transaction_receipt_json(self, tx_hash):
+        """
+        Retrieves the transaction receipt for a given transaction hash.
+
+        This method fetches the receipt of a transaction that has been included in a block.
+        The receipt contains information about the execution of the transaction, including
+
+        """
+        self._logger.trace(f"Fetching receipt for tx: {tx_hash}")
+
+        rpc_query = {
+            'jsonrpc': '2.0',
+            'method': 'eth_getTransactionReceipt',
+            'params': [tx_hash],
+            'id': 1
+        }
+        
+        response = await self._make_rpc_jsonrpc_call(rpc_query)
+        return response.get('result')
+    
 
     async def get_current_block(self, node_idx=0):
         """
@@ -837,7 +858,7 @@ class RpcHelper(object):
                     request=rpc_query,
                     response=None,
                     underlying_exception=Exception('Rate limit exceeded'),
-                    extra_info='RPC_BATCH_ETH_CALL_ERROR: Rate limit exceeded',
+                    extra_info='RPC_JSONRPC_CALL_ERROR: Rate limit exceeded',
                 )
 
             # Get the node to use for this request
@@ -911,7 +932,7 @@ class RpcHelper(object):
                     request=rpc_query,
                     response=response_data,
                     underlying_exception=response_exceptions,
-                    extra_info=f'RPC_BATCH_ETH_CALL_ERROR: {response_exceptions}',
+                    extra_info=f'RPC_JSONRPC_CALL_ERROR: {response_exceptions}',
                 )
 
             return return_response_data
