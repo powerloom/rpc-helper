@@ -23,3 +23,9 @@ class RPCConfigBase(BaseModel):
     retry: int
     request_time_out: int
     connection_limits: ConnectionLimits
+
+
+class RPCConfigFull(RPCConfigBase):
+    """Full RPC configuration model."""
+    polling_interval: int
+    semaphore_value: int = 20
