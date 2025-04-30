@@ -152,6 +152,7 @@ class RpcHelper(object):
                 max_keepalive_connections=self._rpc_settings.connection_limits.max_keepalive_connections,
                 keepalive_expiry=self._rpc_settings.connection_limits.keepalive_expiry,
             ),
+            verify="/etc/ssl/certs/ca-certificates.crt",  # Explicitly set the certificate path
         )
         self._client = AsyncClient(
             timeout=Timeout(timeout=15.0),
