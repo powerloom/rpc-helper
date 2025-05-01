@@ -18,8 +18,8 @@ class ConnectionLimits(BaseModel):
 class RPCConfigBase(BaseModel):
     """Base RPC configuration model."""
     full_nodes: List[RPCNodeConfig]
-    archive_nodes: Optional[List[RPCNodeConfig]]
-    force_archive_blocks: Optional[int]
+    archive_nodes: Optional[List[RPCNodeConfig]] = []
+    force_archive_blocks: Optional[int] = 0
     retry: int
     request_time_out: int
     connection_limits: ConnectionLimits
