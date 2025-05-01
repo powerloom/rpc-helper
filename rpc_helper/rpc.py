@@ -1,4 +1,5 @@
 import asyncio
+import certifi
 from sys import stdout
 from typing import Any
 from typing import List
@@ -152,7 +153,7 @@ class RpcHelper(object):
                 max_keepalive_connections=self._rpc_settings.connection_limits.max_keepalive_connections,
                 keepalive_expiry=self._rpc_settings.connection_limits.keepalive_expiry,
             ),
-            verify="/etc/ssl/certs/ca-certificates.crt",  # Explicitly set the certificate path
+            verify=certifi.where(),  # Use CA bundle from certifi
         )
         self._client = AsyncClient(
             timeout=Timeout(timeout=15.0),
