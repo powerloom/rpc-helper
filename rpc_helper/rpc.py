@@ -548,7 +548,7 @@ class RpcHelper(object):
         """
         Calls the given tasks asynchronously using web3 and returns the response.
 
-        This method executes multiple contract function calls in parallel using asyncio.gather.
+        This method executes multiple contract function calls concurrently using asyncio.gather.
         Each task is a tuple containing the function name and its arguments.
 
         Args:
@@ -637,7 +637,7 @@ class RpcHelper(object):
         # Start with node index 0
         return await f(node_idx=0)
 
-    async def web3_call_with_override(self, tasks, contract_addr, abi, overrides):
+    async def web3_call_with_override(self, tasks, contract_addr, abi, overrides, tasks_block_override=list()):
         """
         Calls the given tasks asynchronously using web3 and returns the response.
         Supports overriding of the contract state.
@@ -650,7 +650,7 @@ class RpcHelper(object):
             contract_addr (str): Address of the contract to call.
             abi (dict): ABI of the contract.
             overrides (dict): State overrides for the call.
-
+            tasks_block_override (list): List of block numbers to override for each task. If not provided, the default block number will be used. If provided, the length of the list must match the number of tasks.
         Returns:
             list: List of responses from the contract function calls.
 
@@ -667,6 +667,13 @@ class RpcHelper(object):
         async def f(node_idx):
             try:
                 # Get the node to use for this request
+                if tasks_block_override and len(tasks_block_override) != len(tasks):
+                    raise RPCException(
+                        request=tasks,
+                        response=None,
+                        underlying_exception=Exception('Tasks block override length does not match the number of tasks'),
+                        extra_info='RPC_WEB3_CALL_WITH_OVERRIDE_ERROR: Tasks block override length does not match the number of tasks',
+                    )
                 node = self._nodes[node_idx]
 
                 # Create contract object
@@ -677,7 +684,7 @@ class RpcHelper(object):
 
                 # Create a list of web3 tasks with state overrides
                 web3_tasks = []
-                for task in tasks:
+                for task, block_override in zip(tasks, tasks_block_override):
                     function_name, args = task
 
                     # Encode the function call data
@@ -689,11 +696,16 @@ class RpcHelper(object):
                         'to': contract_addr,
                         'data': call_data,
                     }
-
-                    # Add the task to the list
-                    web3_tasks.append(
-                        node['web3_client'].eth.call(payload, state_override=overrides),
-                    )
+                    if block_override:
+                        # Add the task to the list
+                        web3_tasks.append(
+                            node['web3_client'].eth.call(payload, state_override=overrides, block_identifier=block_override),
+                        )
+                    else:
+                        # Add the task to the list
+                        web3_tasks.append(
+                            node['web3_client'].eth.call(payload, state_override=overrides),
+                        )
 
                 # Execute all tasks in parallel
                 raw_results = await asyncio.gather(*web3_tasks)
