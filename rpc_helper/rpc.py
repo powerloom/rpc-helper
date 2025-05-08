@@ -684,7 +684,7 @@ class RpcHelper(object):
 
                 # Create a list of web3 tasks with state overrides
                 web3_tasks = []
-                for task, block_override in zip(tasks, tasks_block_override):
+                for i, task in enumerate(tasks):
                     function_name, args = task
 
                     # Encode the function call data
@@ -696,10 +696,10 @@ class RpcHelper(object):
                         'to': contract_addr,
                         'data': call_data,
                     }
-                    if block_override:
+                    if tasks_block_override:
                         # Add the task to the list
                         web3_tasks.append(
-                            node['web3_client'].eth.call(payload, state_override=overrides, block_identifier=block_override),
+                            node['web3_client'].eth.call(payload, state_override=overrides, block_identifier=tasks_block_override[i]),
                         )
                     else:
                         # Add the task to the list
