@@ -544,7 +544,7 @@ class RpcHelper(object):
         # Use the provided node index
         return await f(node_idx=node_idx)
 
-    async def web3_call(self, tasks, contract_addr, abi):
+    async def web3_call(self, tasks, contract_addr, abi, tasks_block_override=list()):
         """
         Calls the given tasks asynchronously using web3 and returns the response.
 
@@ -555,7 +555,7 @@ class RpcHelper(object):
             tasks (list): List of tuples of (contract functions, contract args) to call. By name.
             contract_addr (str): Address of the contract to call.
             abi (dict): ABI of the contract.
-
+            tasks_block_override (list): List of block numbers to override for each task. If not provided, the default block number will be used. If provided, the length of the list must match the number of tasks.
         Returns:
             list: List of responses from the contract function calls.
 
@@ -570,6 +570,14 @@ class RpcHelper(object):
             before_sleep=self._on_node_exception,
         )
         async def f(node_idx):
+            # check if tasks_block_override is provided and if it is, check if the length of the list matches the number of tasks
+            if tasks_block_override and len(tasks_block_override) != len(tasks):
+                raise RPCException(
+                    request=tasks,
+                    response=None,
+                    underlying_exception=Exception('Tasks block override length does not match the number of tasks'),
+                    extra_info='RPC_WEB3_CALL_ERROR: Tasks block override length does not match the number of tasks',
+                )
             # Check rate limit before proceeding
             if not await self.check_rate_limit(node_idx):
                 raise RPCException(
@@ -587,14 +595,20 @@ class RpcHelper(object):
                     address=contract_addr,
                     abi=abi,
                 )
-
-                # Create a list of web3 tasks to execute in parallel
-                web3_tasks = [
-                    contract_obj.functions[task[0]](*task[1]).call() for task in tasks
-                ]
+                if tasks_block_override:    
+                    # Create a list of web3 tasks to execute concurrently with the block number override
+                    web3_tasks = [
+                        contract_obj.functions[task[0]](*task[1]).call(block_identifier=tasks_block_override[i]) for i, task in enumerate(tasks)
+                    ]
+                    self._logger.info(f"Executing eth_call tasks: {tasks} with block number override: {tasks_block_override}")
+                else:
+                    # Create a list of web3 tasks to execute concurrently with the default block number
+                    web3_tasks = [
+                        contract_obj.functions[task[0]](*task[1]).call() for task in tasks
+                    ]
 
                 # Execute all tasks in parallel
-                response = await asyncio.gather(*web3_tasks)
+                response = await asyncio.gather(*web3_tasks, return_exceptions=True)
                 return response
             except Exception as e:
                 # Create a serializable version of the tasks for error reporting
