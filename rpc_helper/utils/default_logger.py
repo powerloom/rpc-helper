@@ -6,35 +6,25 @@ from loguru import logger
 from rpc_helper.utils.models.settings_model import LoggingConfig
 
 
-def create_level_filter(level):
-    """
-    Create a filter function for a specific log level.
-    """
-    return lambda record: record['level'].name == level
+# Global state to track if RPC Helper logging has been configured
+_rpc_helper_configured = False
+_rpc_helper_handler_ids = []
 
 
-def configure_logger(config: LoggingConfig = LoggingConfig()):
+def _rpc_helper_filter(record):
+    """Filter that only allows RPC Helper logs through."""
+    return record.get("extra", {}).get("rpc_helper") == True
+
+
+def _setup_rpc_helper_logging(config: LoggingConfig):
     """
-    Configure and return a logger instance based on the provided configuration.
+    Configure RPC Helper logging handlers on the global loguru logger.
+    This should only be called once per application.
+    """
+    global _rpc_helper_handler_ids
     
-    Args:
-        config (LoggingConfig): The logging configuration to use.
-                              If not provided, uses default settings.
-    
-    Returns:
-        Logger: Configured logger instance
-    """
-    # Create a new logger instance with module binding
-    if config.module_name:
-        new_logger = logger.bind(module=config.module_name)
-    else:
-        new_logger = logger.bind(module="RpcHelper")
-
-    # Remove all handlers from this logger instance
-    new_logger.configure(handlers=[])
-
-    # Configure file logging if enabled
-    if config.log_dir is not None and config.file_levels is not None:
+    # Setup file logging if enabled
+    if config.enable_file_logging and config.log_dir is not None and config.file_levels is not None:
         # Convert to absolute path if not already
         log_dir = Path(config.log_dir)
         if not log_dir.is_absolute():
@@ -43,79 +33,136 @@ def configure_logger(config: LoggingConfig = LoggingConfig()):
         try:
             log_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
         except PermissionError:
-            # Fallback to user's home directory with absolute path
+            # Fallback to user's home directory
             log_dir = Path.home() / ".rpc_helper/logs/rpc_helper"
             log_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
             print(f"Warning: Could not create log directory at {config.log_dir}. Using {log_dir} instead.")
         
-        # Common log format for files, matching shared logger style
+        # File format
         file_format = "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {module}:{function}:{line} - {message}"
         
-        # Add file handlers for enabled levels
+        # Add file handlers for each enabled level
         for level, enabled in config.file_levels.items():
             if enabled:
                 log_file = log_dir / f"{level.lower()}.log"
-                new_logger.add(
-                    str(log_file.absolute()),  # Use absolute path
+                
+                def level_filter(record, target_level=level):
+                    return (_rpc_helper_filter(record) and 
+                           record["level"].name == target_level)
+                
+                handler_id = logger.add(
+                    str(log_file.absolute()),
                     level=level,
                     format=file_format,
-                    filter=create_level_filter(level),
+                    filter=level_filter,
                     rotation="100 MB",
                     retention="7 days",
                     compression="zip",
                     backtrace=True,
                     diagnose=True
                 )
+                _rpc_helper_handler_ids.append(handler_id)
+    
+    # Setup console logging if enabled
+    if config.enable_console_logging:
+        console_format = "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{module}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+        
+        # Split levels between stdout and stderr
+        stdout_levels = []
+        stderr_levels = []
+        
+        for level, output in config.console_levels.items():
+            if logger.level(level).no < logger.level("WARNING").no:
+                stdout_levels.append(level)
+            else:
+                stderr_levels.append(level)
+        
+        # Add stdout handler for INFO and below
+        if stdout_levels:
+            def stdout_filter(record):
+                return (_rpc_helper_filter(record) and 
+                       record["level"].name in stdout_levels)
+            
+            handler_id = logger.add(
+                sys.stdout,
+                format=console_format,
+                filter=stdout_filter,
+                colorize=True
+            )
+            _rpc_helper_handler_ids.append(handler_id)
+        
+        # Add stderr handler for WARNING and above
+        if stderr_levels:
+            def stderr_filter(record):
+                return (_rpc_helper_filter(record) and 
+                       record["level"].name in stderr_levels)
+            
+            handler_id = logger.add(
+                sys.stderr,
+                format=console_format,
+                filter=stderr_filter,
+                colorize=True
+            )
+            _rpc_helper_handler_ids.append(handler_id)
 
-    # Configure console logging with colors, matching shared logger style
-    console_format = "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{module}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
-    
-    # Split console output between stdout and stderr like shared logger
-    stdout_levels = []
-    stderr_levels = []
-    
-    for level, output in config.console_levels.items():
-        if logger.level(level).no < logger.level("WARNING").no:
-            stdout_levels.append(level)
-        else:
-            stderr_levels.append(level)
-    
-    # Add stdout handler for INFO and below
-    if stdout_levels:
-        new_logger.add(
-            sys.stdout,
-            format=console_format,
-            filter=lambda record: record["level"].name in stdout_levels,
-            colorize=True
-        )
-    
-    # Add stderr handler for WARNING and above
-    if stderr_levels:
-        new_logger.add(
-            sys.stderr,
-            format=console_format,
-            filter=lambda record: record["level"].name in stderr_levels,
-            colorize=True
-        )
 
-    return new_logger
+def configure_logger(config: LoggingConfig = LoggingConfig()):
+    """
+    Configure RPC Helper logging globally (one-time setup).
+    
+    Args:
+        config (LoggingConfig): The logging configuration to use.
+    
+    Returns:
+        Logger: A bound logger instance for RPC Helper.
+    """
+    global _rpc_helper_configured
+    
+    if not _rpc_helper_configured:
+        _setup_rpc_helper_logging(config)
+        _rpc_helper_configured = True
+    
+    # Return a bound logger instance with RPC Helper marker
+    module_name = config.module_name or "RpcHelper"
+    return logger.bind(rpc_helper=True, module=module_name)
 
 
 def get_logger(config: LoggingConfig = None):
     """
-    Get a configured logger instance.
+    Get a configured RPC Helper logger instance.
+    
+    If this is the first call, it will configure the global logging.
+    Subsequent calls will return bound logger instances without reconfiguring.
     
     Args:
         config (LoggingConfig, optional): The logging configuration to use.
-                                        If not provided, uses default RpcHelper settings.
+                                        Only used on first call.
     
     Returns:
-        Logger: Configured logger instance
+        Logger: A bound logger instance for RPC Helper.
     """
     if not config:
         config = LoggingConfig(module_name="RpcHelper")
+    
     return configure_logger(config)
 
 
-# Default logger instance with RpcHelper-specific configuration
+def cleanup_rpc_helper_logging():
+    """
+    Remove all RPC Helper logging handlers.
+    Useful for testing or when you need to reconfigure.
+    """
+    global _rpc_helper_configured, _rpc_helper_handler_ids
+    
+    for handler_id in _rpc_helper_handler_ids:
+        try:
+            logger.remove(handler_id)
+        except ValueError:
+            pass
+    
+    _rpc_helper_handler_ids.clear()
+    _rpc_helper_configured = False
+
+
+# Default logger instance - configured on first import
 default_logger = get_logger()

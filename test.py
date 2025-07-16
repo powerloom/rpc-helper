@@ -70,3 +70,52 @@ if __name__ == "__main__":
     print("Running test_get_transaction_receipt_json...")
     asyncio.run(test_get_transaction_receipt_json())
     print("Test finished.")
+
+# Test the RPC Helper with isolated logging
+
+from rpc_helper.utils.default_logger import get_logger, cleanup_rpc_helper_logging
+from rpc_helper.utils.models.settings_model import LoggingConfig
+
+# Test 1: Default RPC Helper logger (with file logging)
+print("=== Test 1: Default RPC Helper Logger ===")
+rpc_logger = get_logger()
+rpc_logger.info("This is an RPC Helper info message")
+rpc_logger.warning("This is an RPC Helper warning message")
+
+# Test 2: Demonstrate that subsequent get_logger calls use the same configuration
+print("\n=== Test 2: Subsequent Logger Calls (Same Config) ===")
+rpc_logger2 = get_logger()  # This won't reconfigure
+rpc_logger2.info("This uses the same configuration as the first logger")
+
+# Test 3: Test with file logging disabled (requires cleanup first)
+print("\n=== Test 3: Cleanup and Reconfigure Without File Logging ===")
+cleanup_rpc_helper_logging()  # Remove existing handlers
+
+config_no_files = LoggingConfig(
+    module_name="RpcHelper_NoFiles",
+    enable_file_logging=False  # Disable file logging
+)
+rpc_logger_no_files = get_logger(config_no_files)
+rpc_logger_no_files.info("This should only appear in console, not files")
+rpc_logger_no_files.error("This error should only appear in console")
+
+# Test 4: Simulate external loguru usage (this should not interfere)
+print("\n=== Test 4: External Loguru Usage ===")
+from loguru import logger as external_logger
+
+# Add a handler for external logs (simulating what other services might do)
+external_logger.add("logs/external_service.log", filter=lambda record: not record.get("extra", {}).get("rpc_helper"))
+
+external_logger.info("This is an external service log")
+external_logger.warning("This external warning should not go to RPC Helper logs")
+
+# Test 5: Verify RPC Helper logs still work after external logger setup
+print("\n=== Test 5: RPC Helper Logs After External Setup ===")
+rpc_logger_no_files.debug("RPC Helper debug message")
+rpc_logger_no_files.success("RPC Helper success message")
+
+print("\nCheck the logs/ directory to verify:")
+print("- RPC Helper logs should NOT be in files (file logging disabled)")
+print("- External logs should be in logs/external_service.log")
+print("- No cross-contamination should occur")
+print("- Console should show RPC Helper logs with proper formatting")

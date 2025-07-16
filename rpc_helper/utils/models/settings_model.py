@@ -23,6 +23,8 @@ class LoggingConfig(BaseModel):
         "CRITICAL": True
     }
     module_name: Optional[str] = "RpcHelper"  # Added for module-specific context
+    enable_file_logging: bool = True
+    enable_console_logging: bool = True
     rotation: str = "6 hours"
     retention: str = "2 days"
     compression: str = "tar.xz"
