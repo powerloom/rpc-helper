@@ -1,5 +1,4 @@
 import asyncio
-from sys import stdout
 from typing import Any
 from typing import List
 from typing import Optional
@@ -25,14 +24,10 @@ from web3 import Web3
 from web3._utils.events import get_event_data
 from web3.contract import AsyncContract
 
-from rpc_helper.utils.default_logger import create_level_filter
-from rpc_helper.utils.default_logger import default_logger
-from rpc_helper.utils.default_logger import FORMAT
+from rpc_helper.utils.default_logger import get_logger
 from rpc_helper.utils.exceptions import RPCException
+from rpc_helper.utils.models.settings_model import LoggingConfig
 from rpc_helper.utils.models.settings_model import RPCConfigBase
-
-
-logger = default_logger.bind(module='RpcHelper')
 
 
 def get_contract_abi_dict(abi):
@@ -113,13 +108,15 @@ def get_event_sig_and_abi(event_signatures, event_abis):
 
 class RpcHelper(object):
 
-    def __init__(self, rpc_settings: RPCConfigBase, archive_mode=False, debug_mode=False):
+    def __init__(self, rpc_settings: RPCConfigBase, archive_mode=False, debug_mode=False, logger=None):
         """
         Initializes an instance of the RpcHelper class.
 
         Args:
-            rpc_settings (RPCConfigBase, optional): The RPC configuration settings to use. Defaults to settings.rpc.
+            rpc_settings (RPCConfigBase): The RPC configuration settings to use.
             archive_mode (bool, optional): Whether to operate in archive mode. Defaults to False.
+            debug_mode (bool, optional): Whether to enable debug logging. Defaults to False.
+            logger (Logger, optional): Custom logger instance. If not provided, uses default logger.
         """
         self._archive_mode = archive_mode
         self._debug_mode = debug_mode
@@ -128,13 +125,27 @@ class RpcHelper(object):
         self._current_node_index = 0
         self._node_count = 0
         self._initialized = False
-        self._logger = logger
         self._client = None
         self._async_transport = None
 
-        if self._debug_mode:
-            self._logger.add(stdout, level='TRACE', format=FORMAT, filter=create_level_filter('TRACE'))
-            self._logger.add(stdout, level='DEBUG', format=FORMAT, filter=create_level_filter('DEBUG'))
+        # Configure logger
+        if logger is not None:
+            self._logger = logger
+        else:
+            base_config = LoggingConfig(module_name="RpcHelper")
+            if debug_mode:
+                # Add debug levels to both console and file logging
+                base_config.console_levels.update({
+                    "TRACE": "stdout",
+                    "DEBUG": "stdout"
+                })
+                if base_config.file_levels:
+                    base_config.file_levels.update({
+                        "TRACE": True,
+                        "DEBUG": True
+                    })
+            
+            self._logger = get_logger(base_config)
 
     async def _init_http_clients(self):
         """
