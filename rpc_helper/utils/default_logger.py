@@ -24,15 +24,14 @@ def configure_logger(config: LoggingConfig = LoggingConfig()):
     Returns:
         Logger: Configured logger instance
     """
-    # Force remove all handlers
+    # Create a new logger instance without affecting global state
     new_logger = logger.bind()
+    
+    # Add module context if specified
     if config.module_name:
         new_logger = new_logger.bind(module=config.module_name)
     else:
         new_logger = new_logger.bind(module="RpcHelper")
-        
-    new_logger.configure(handlers=[])
-    new_logger.remove()
 
     # Configure file logging if enabled
     if config.log_dir is not None and config.file_levels is not None:
@@ -73,19 +72,21 @@ def configure_logger(config: LoggingConfig = LoggingConfig()):
     return new_logger
 
 
-def get_logger(config: LoggingConfig = LoggingConfig()):
+def get_logger(config: LoggingConfig = None):
     """
     Get a configured logger instance.
     
     Args:
-        config (LoggingConfig): The logging configuration to use.
-                              If not provided, uses default settings.
+        config (LoggingConfig, optional): The logging configuration to use.
+                                        If not provided, uses default RpcHelper settings.
     
     Returns:
         Logger: Configured logger instance
     """
+    if not config:
+        config = LoggingConfig(module_name="RpcHelper")
     return configure_logger(config)
 
 
-# Default logger instance with default configuration
+# Default logger instance with RpcHelper-specific configuration
 default_logger = get_logger()
