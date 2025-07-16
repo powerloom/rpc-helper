@@ -26,7 +26,6 @@ from web3.contract import AsyncContract
 
 from rpc_helper.utils.default_logger import get_logger
 from rpc_helper.utils.exceptions import RPCException
-from rpc_helper.utils.models.settings_model import LoggingConfig
 from rpc_helper.utils.models.settings_model import RPCConfigBase
 
 
@@ -119,6 +118,7 @@ class RpcHelper(object):
             logger (Logger, optional): Custom logger instance. If not provided, uses default logger.
         """
         self._archive_mode = archive_mode
+        # TODO: handle debug logging
         self._debug_mode = debug_mode
         self._rpc_settings = rpc_settings
         self._nodes = list()
@@ -132,20 +132,8 @@ class RpcHelper(object):
         if logger is not None:
             self._logger = logger
         else:
-            base_config = LoggingConfig(module_name="RpcHelper")
-            if debug_mode:
-                # Add debug levels to both console and file logging
-                base_config.console_levels.update({
-                    "TRACE": "stdout",
-                    "DEBUG": "stdout"
-                })
-                if base_config.file_levels:
-                    base_config.file_levels.update({
-                        "TRACE": True,
-                        "DEBUG": True
-                    })
-            
-            self._logger = get_logger(base_config)
+            self._logger = get_logger("RpcHelper")
+
 
     async def _init_http_clients(self):
         """
