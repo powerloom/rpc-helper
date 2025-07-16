@@ -1,6 +1,32 @@
 from pydantic import BaseModel
-from typing import List
-from typing import Optional
+from typing import Dict, List, Optional
+from pathlib import Path
+
+
+class LoggingConfig(BaseModel):
+    """Logging configuration model."""
+    log_dir: Optional[Path] = Path("logs/rpc_helper")  # None disables file logging
+    console_levels: Dict[str, str] = {
+        # Debug levels disabled by default
+        "INFO": "stdout",
+        "SUCCESS": "stdout",
+        "WARNING": "stderr",
+        "ERROR": "stderr",
+        "CRITICAL": "stderr"
+    }
+    file_levels: Optional[Dict[str, bool]] = {
+        # Debug levels disabled by default
+        "INFO": True,
+        "SUCCESS": True,
+        "WARNING": True,
+        "ERROR": True,
+        "CRITICAL": True
+    }
+    module_name: Optional[str] = None  # Added for module-specific context
+    rotation: str = "6 hours"
+    retention: str = "2 days"
+    compression: str = "tar.xz"
+    format: str = "{time:MMMM D, YYYY > HH:mm:ss!UTC} | {level} | {module} | Message: {message} | {extra}"  # Added module to format
 
 
 class RPCNodeConfig(BaseModel):
