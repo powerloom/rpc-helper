@@ -24,14 +24,12 @@ def configure_logger(config: LoggingConfig = LoggingConfig()):
     Returns:
         Logger: Configured logger instance
     """
-    # Create a new logger instance without affecting global state
-    new_logger = logger.bind()
     
     # Add module context if specified
     if config.module_name:
-        new_logger = new_logger.bind(module=config.module_name)
+        new_logger = logger.bind(module=config.module_name)
     else:
-        new_logger = new_logger.bind(module="RpcHelper")
+        new_logger = logger.bind(module="RpcHelper")
 
     # Configure file logging if enabled
     if config.log_dir is not None and config.file_levels is not None:

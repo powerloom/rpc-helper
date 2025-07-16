@@ -22,7 +22,7 @@ class LoggingConfig(BaseModel):
         "ERROR": True,
         "CRITICAL": True
     }
-    module_name: Optional[str] = None  # Added for module-specific context
+    module_name: Optional[str] = "RpcHelper"  # Added for module-specific context
     rotation: str = "6 hours"
     retention: str = "2 days"
     compression: str = "tar.xz"
