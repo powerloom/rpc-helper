@@ -181,11 +181,149 @@ except RPCException as e:
     print(f"Extra Info: {e.extra_info}")
 ```
 
-## Debugging
+## Logging
 
-Enable debug mode for detailed logging:
+RPC Helper uses [Loguru](https://github.com/Delgan/loguru) for logging and provides flexible configuration options.
+
+### Default Logging
+
+By default, RPC Helper uses Loguru's standard console logging with module binding:
 
 ```python
-# Enable debug mode
+from rpc_helper.rpc import RpcHelper
+
+# Default logging - uses standard Loguru console output
+rpc = RpcHelper(rpc_settings=rpc_config)
+```
+
+### Custom Logger
+
+You can provide your own logger instance:
+
+```python
+from loguru import logger
+from rpc_helper.rpc import RpcHelper
+
+# Create a custom logger
+custom_logger = logger.bind(service="MyService")
+rpc = RpcHelper(rpc_settings=rpc_config, logger=custom_logger)
+```
+
+### Configuring File Logging
+
+To enable file logging, use the configuration functions:
+
+```python
+from rpc_helper.utils.default_logger import configure_rpc_logging
+from rpc_helper.utils.models.settings_model import LoggingConfig
+from pathlib import Path
+
+# Configure file logging
+logging_config = LoggingConfig(
+    enable_file_logging=True,
+    log_dir=Path("logs/rpc_helper"),
+    file_levels={
+        "INFO": True,
+        "WARNING": True,
+        "ERROR": True,
+        "CRITICAL": True
+    },
+    format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {module} | {message}",
+    rotation="100 MB",
+    retention="7 days",
+    compression="zip"
+)
+
+# Apply the configuration (call this once, typically at application startup)
+configure_rpc_logging(logging_config)
+
+# Now create RPC Helper instances - they will use the configured logging
+rpc = RpcHelper(rpc_settings=rpc_config)
+```
+
+### Debug Logging
+
+Enable debug and trace logging for troubleshooting:
+
+```python
+from rpc_helper.utils.default_logger import enable_debug_logging
+
+# Enable debug logging to console
+debug_handler_id = enable_debug_logging()
+
+# Create RPC Helper with debug mode
 rpc = RpcHelper(rpc_settings=rpc_config, debug_mode=True)
+```
+
+### Working with External Logging Systems
+
+RPC Helper's logging is designed to work alongside external logging configurations:
+
+```python
+# Your application's logging setup
+from loguru import logger
+
+# Remove default handler and configure your own
+logger.remove()
+logger.add("logs/app.log", rotation="1 day")
+logger.add(sys.stderr, level="WARNING")
+
+# RPC Helper will work with your logging setup
+from rpc_helper.rpc import RpcHelper
+rpc = RpcHelper(rpc_settings=rpc_config)
+
+# Both your app logs and RPC Helper logs will work correctly
+logger.info("Application started")
+rpc._logger.info("RPC Helper initialized")
+```
+
+### Cleanup and Management
+
+For advanced use cases, you can manage logging handlers:
+
+```python
+from rpc_helper.utils.default_logger import cleanup_rpc_logging, disable_rpc_file_logging
+
+# Remove all RPC Helper file logging handlers
+disable_rpc_file_logging()
+
+# Clean up all RPC Helper logging configuration
+cleanup_rpc_logging()
+```
+
+### Logging Configuration Options
+
+The `LoggingConfig` class supports these options:
+
+```python
+from rpc_helper.utils.models.settings_model import LoggingConfig
+
+config = LoggingConfig(
+    # File logging
+    enable_file_logging=True,  # Enable/disable file logging
+    log_dir=Path("logs"),      # Directory for log files
+    file_levels={              # Which levels to log to files
+        "DEBUG": True,
+        "INFO": True,
+        "WARNING": True,
+        "ERROR": True,
+        "CRITICAL": True
+    },
+    
+    # Console logging (optional - uses Loguru defaults if not specified)
+    enable_console_logging=True,
+    console_levels={
+        "INFO": "stdout",      # Send INFO to stdout
+        "WARNING": "stderr",   # Send WARNING+ to stderr
+        "ERROR": "stderr",
+        "CRITICAL": "stderr"
+    },
+    
+    # Format and rotation
+    format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {module} | {message}",
+    rotation="100 MB",         # Rotate when files reach this size
+    retention="7 days",        # Keep logs for this long
+    compression="zip",         # Compress rotated logs
+    module_name="RpcHelper"    # Module name for log binding
+)
 ```
