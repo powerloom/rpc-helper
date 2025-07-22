@@ -255,41 +255,6 @@ debug_handler_id = enable_debug_logging()
 rpc = RpcHelper(rpc_settings=rpc_config, debug_mode=True)
 ```
 
-### Working with External Logging Systems
-
-RPC Helper's logging is designed to work alongside external logging configurations:
-
-```python
-# Your application's logging setup
-from loguru import logger
-
-# Remove default handler and configure your own
-logger.remove()
-logger.add("logs/app.log", rotation="1 day")
-logger.add(sys.stderr, level="WARNING")
-
-# RPC Helper will work with your logging setup
-from rpc_helper.rpc import RpcHelper
-rpc = RpcHelper(rpc_settings=rpc_config)
-
-# Both your app logs and RPC Helper logs will work correctly
-logger.info("Application started")
-rpc._logger.info("RPC Helper initialized")
-```
-
-### Cleanup and Management
-
-For advanced use cases, you can manage logging handlers:
-
-```python
-from rpc_helper.utils.default_logger import cleanup_rpc_logging, disable_rpc_file_logging
-
-# Remove all RPC Helper file logging handlers
-disable_rpc_file_logging()
-
-# Clean up all RPC Helper logging configuration
-cleanup_rpc_logging()
-```
 
 ### Logging Configuration Options
 
