@@ -107,7 +107,7 @@ def get_event_sig_and_abi(event_signatures, event_abis):
 
 class RpcHelper(object):
 
-    def __init__(self, rpc_settings: RPCConfigBase, archive_mode=False, debug_mode=False, logger=None):
+    def __init__(self, rpc_settings: RPCConfigBase, archive_mode=False, debug_mode=False, logger=None, enable_rate_limiter=True):
         """
         Initializes an instance of the RpcHelper class.
 
@@ -116,6 +116,7 @@ class RpcHelper(object):
             archive_mode (bool, optional): Whether to operate in archive mode. Defaults to False.
             debug_mode (bool, optional): Whether to enable debug logging. Defaults to False.
             logger (Logger, optional): Custom logger instance. If not provided, uses default logger.
+            enable_rate_limiter (bool, optional): Whether to enable rate limiting via external service. Defaults to True.
         """
         self._archive_mode = archive_mode
         # TODO: handle debug logging
@@ -127,6 +128,7 @@ class RpcHelper(object):
         self._initialized = False
         self._client = None
         self._async_transport = None
+        self._enable_rate_limiter = enable_rate_limiter
 
         # Configure logger
         if logger is not None:
@@ -213,6 +215,8 @@ class RpcHelper(object):
         operation should be allowed to proceed based on configured rate limits. The rate
         limiter helps prevent overwhelming the RPC nodes with too many requests.
 
+        If rate limiting is disabled via configuration, this method immediately returns True.
+
         Args:
             key: A unique key to identify the rate limit bucket, typically a node index
 
@@ -222,6 +226,10 @@ class RpcHelper(object):
         Raises:
             Exception: If there is an error in communicating with the rate-limiter service
         """
+        # Skip rate limiting if disabled
+        if not self._enable_rate_limiter:
+            return True
+
         # Generate a unique key for the rate limit bucket based on the function name and arguments
         rate_limit_key = f'rpc_helper_{key}'
 
