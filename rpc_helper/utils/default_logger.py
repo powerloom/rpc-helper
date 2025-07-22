@@ -33,23 +33,13 @@ def configure_rpc_logging(config: LoggingConfig):
         config (LoggingConfig): The logging configuration to apply.
     """
     # Setup file logging if enabled
-    if config.enable_file_logging and config.log_dir is not None and config.file_levels:
+    if config.log_dir is not None:
         # Convert to absolute path if not already
         log_dir = Path(config.log_dir)
         if not log_dir.is_absolute():
             log_dir = Path.cwd() / log_dir
             
-        try:
-            log_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
-        except PermissionError:
-            # Fallback to user's home directory or disable file logging
-            try:
-                log_dir = Path.home() / ".rpc_helper/logs"
-                log_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
-                print(f"Warning: Could not create log directory at {config.log_dir}. Using {log_dir} instead.")
-            except PermissionError:
-                print(f"Warning: Could not create any log directory. File logging disabled.")
-                return
+        log_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
         
         # Add file handlers for each enabled level
         for level, enabled in config.file_levels.items():
