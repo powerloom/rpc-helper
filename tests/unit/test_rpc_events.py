@@ -7,6 +7,7 @@ including filtering events, decoding event data, and handling various edge cases
 import pytest
 from unittest.mock import AsyncMock, patch
 from hexbytes import HexBytes
+from tests.conftest import LogMock
 
 from rpc_helper.utils.exceptions import RPCException
 
@@ -36,12 +37,29 @@ class TestRpcEventOperations:
         }
         
         contract_address = "0x1234567890123456789012345678901234567890"
-        result = await rpc_helper_instance.get_events_logs(
-            contract_address, 12345678, 12345679, [], event_abi
-        )
         
-        assert isinstance(result, list)
-        assert len(result) == 1
+        # Mock get_event_data to avoid Web3 event decoding complexity
+        with patch('rpc_helper.rpc.get_event_data') as mock_get_event_data:
+            mock_get_event_data.return_value = {
+                "event": "Transfer",
+                "args": {
+                    "from": "0x0000000000000000000000000000000000000000",
+                    "to": "0x1234567890123456789012345678901234567890",
+                    "value": 1
+                }
+            }
+            
+            result = await rpc_helper_instance.get_events_logs(
+                contract_address=contract_address,
+                to_block=12345679,
+                from_block=12345678,
+                topics=[],
+                event_abi=event_abi
+            )
+            
+            assert isinstance(result, list)
+            assert len(result) == 1
+            assert result[0]["event"] == "Transfer"
 
     @pytest.mark.unit
     @pytest.mark.asyncio
@@ -62,7 +80,11 @@ class TestRpcEventOperations:
         topics = ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"]
         
         result = await rpc_helper_instance.get_events_logs(
-            contract_address, 12345678, 12345679, topics, event_abi
+            contract_address=contract_address,
+            to_block=12345679,
+            from_block=12345678,
+            topics=topics,
+            event_abi=event_abi
         )
         
         assert isinstance(result, list)
@@ -86,7 +108,11 @@ class TestRpcEventOperations:
         contract_address = "0x1234567890123456789012345678901234567890"
         
         result = await rpc_helper_instance.get_events_logs(
-            contract_address, 12345678, 12345679, [], event_abi
+            contract_address=contract_address,
+            to_block=12345679,
+            from_block=12345678,
+            topics=[],
+            event_abi=event_abi
         )
         
         assert result == []
@@ -103,7 +129,11 @@ class TestRpcEventOperations:
         
         with pytest.raises(RPCException) as exc_info:
             await rpc_helper_instance.get_events_logs(
-                contract_address, 12345678, 12345679, [], event_abi
+                contract_address=contract_address,
+                to_block=12345679,
+                from_block=12345678,
+                topics=[],
+                event_abi=event_abi
             )
         
         assert "RPC_GET_EVENT_LOGS_ERROR" in str(exc_info.value.extra_info)
@@ -120,8 +150,13 @@ class TestRpcEventOperations:
         contract_address = "0x1234567890123456789012345678901234567890"
         
         with pytest.raises(RPCException) as exc_info:
+            # This is an invalid range where to_block < from_block
             await rpc_helper_instance.get_events_logs(
-                contract_address, 12345679, 12345678, [], event_abi  # Invalid range
+                contract_address=contract_address,
+                to_block=12345678,
+                from_block=12345679,
+                topics=[],
+                event_abi=event_abi
             )
         
         assert "RPC_GET_EVENT_LOGS_ERROR" in str(exc_info.value.extra_info)
@@ -136,7 +171,11 @@ class TestRpcEventOperations:
             
             with pytest.raises(RPCException) as exc_info:
                 await rpc_helper_instance.get_events_logs(
-                    contract_address, 12345678, 12345679, [], event_abi
+                    contract_address=contract_address,
+                    to_block=12345679,
+                    from_block=12345678,
+                    topics=[],
+                    event_abi=event_abi
                 )
             
             assert "Rate limit exceeded" in str(exc_info.value.extra_info)
@@ -147,25 +186,20 @@ class TestRpcEventOperations:
         """Test event log retrieval for large block ranges."""
         mock_web3 = rpc_helper_instance._nodes[0]['web3_client']
         
-        # Create many mock logs
         logs = []
         for i in range(100):
-            logs.append({
-                "address": "0x1234567890123456789012345678901234567890",
-                "topics": ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"],
-                "data": "0x0000000000000000000000000000000000000000000000000000000000000001",
-                "blockNumber": 12345678 + i,
-                "transactionHash": f"0xabcdef{i:06d}",
-                "transactionIndex": 0,
-                "blockHash": "0x1234567890abcdef",
-                "logIndex": i,
-                "removed": False
-            })
+            log_mock = LogMock(
+                block_number=12345678 + i,
+                tx_hash=f"0xabcdef{i:06d}",
+                log_index=i
+            )
+            logs.append(log_mock)
         
         mock_web3.eth.get_logs.return_value = logs
         
         event_abi = {
             "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef": {
+                "anonymous": False,
                 "name": "Transfer",
                 "type": "event",
                 "inputs": []
@@ -174,12 +208,25 @@ class TestRpcEventOperations:
         
         contract_address = "0x1234567890123456789012345678901234567890"
         
-        result = await rpc_helper_instance.get_events_logs(
-            contract_address, 12345678, 12345777, [], event_abi
-        )
-        
-        assert isinstance(result, list)
-        assert len(result) == 100
+        # Mock get_event_data to avoid Web3 event decoding complexity
+        with patch('rpc_helper.rpc.get_event_data') as mock_get_event_data:
+            mock_get_event_data.return_value = {
+                "event": "Transfer",
+                "args": {"value": 1}
+            }
+            
+            result = await rpc_helper_instance.get_events_logs(
+                contract_address=contract_address,
+                to_block=12345777,
+                from_block=12345678,
+                topics=[],
+                event_abi=event_abi
+            )
+            
+            assert isinstance(result, list)
+            assert len(result) == 100
+            # Verify get_event_data was called for each log
+            assert mock_get_event_data.call_count == 100
 
     @pytest.mark.unit
     @pytest.mark.asyncio
@@ -196,7 +243,11 @@ class TestRpcEventOperations:
         ]
         
         result = await rpc_helper_instance.get_events_logs(
-            contract_address, 12345678, 12345679, topics, event_abi
+            contract_address=contract_address,
+            to_block=12345679,
+            from_block=12345678,
+            topics=topics,
+            event_abi=event_abi
         )
         
         assert isinstance(result, list)
@@ -207,25 +258,18 @@ class TestRpcEventOperations:
     @pytest.mark.asyncio
     async def test_get_events_logs_decode_events(self, rpc_helper_instance):
         """Test proper decoding of event data."""
-        # Mock event log with Transfer data
-        log_data = {
-            "address": "0x1234567890123456789012345678901234567890",
-            "topics": [
-                "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
-                "0x0000000000000000000000000000000000000000000000000000000000000000",
-                "0x0000000000000000000000001234567890123456789012345678901234567890"
-            ],
-            "data": "0x0000000000000000000000000000000000000000000000000000000000000001",
-            "blockNumber": 12345678,
-            "transactionHash": "0xabcdef1234567890",
-            "transactionIndex": 0,
-            "blockHash": "0x1234567890abcdef",
-            "logIndex": 0,
-            "removed": False
-        }
+        # Create mock log object using the shared LogMock class
+        
+        log_mock = LogMock(
+            topics=[
+                HexBytes("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"),
+                HexBytes("0x0000000000000000000000000000000000000000000000000000000000000000"),
+                HexBytes("0x0000000000000000000000001234567890123456789012345678901234567890")
+            ]
+        )
         
         mock_web3 = rpc_helper_instance._nodes[0]['web3_client']
-        mock_web3.eth.get_logs.return_value = [log_data]
+        mock_web3.eth.get_logs.return_value = [log_mock]
         
         # Mock codec and event decoding
         mock_codec = AsyncMock()
@@ -258,7 +302,11 @@ class TestRpcEventOperations:
             }
             
             result = await rpc_helper_instance.get_events_logs(
-                contract_address, 12345678, 12345679, [], event_abi
+                contract_address=contract_address,
+                to_block=12345679,
+                from_block=12345678,
+                topics=[],
+                event_abi=event_abi
             )
             
             assert len(result) == 1

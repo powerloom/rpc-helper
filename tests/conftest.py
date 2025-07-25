@@ -6,6 +6,7 @@ used across the test suite.
 import asyncio
 from typing import Dict, List, Any
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from hexbytes import HexBytes
 
 import pytest
 import httpx
@@ -21,6 +22,28 @@ TEST_ARCHIVE_URL = "https://eth.llamarpc.com"
 
 # Global state for contract function return values
 _global_function_return_values = {}
+
+
+class AwaitableProperty:
+    """A property that can be awaited and returns a fresh coroutine each time."""
+    def __init__(self, value):
+        self.value = value
+        
+    def __await__(self):
+        async def coro():
+            return self.value
+        return coro().__await__()
+    
+
+class FailingAwaitableProperty:
+    """A property that can be awaited and raises an error each time."""
+    def __init__(self, error):
+        self.error = error
+        
+    def __await__(self):
+        async def coro():
+            raise self.error
+        return coro().__await__()
 
 
 class ContractFunctionsMock:
@@ -62,6 +85,42 @@ class ContractFunctionsMock:
             factory = self._function_mocks[function_name]
             function_mock = factory.return_value
             function_mock.call.return_value = value
+
+
+class LogMock:
+    """Mock log object that behaves like Web3's AttributeDict."""
+    
+    def __init__(self, address=None, topics=None, data=None, block_number=None, 
+                 tx_hash=None, tx_index=0, block_hash=None, log_index=0, removed=False):
+        self.address = address or "0x1234567890123456789012345678901234567890"
+        self.topics = topics or [
+            HexBytes("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"),
+            HexBytes("0x0000000000000000000000000000000000000000"),
+            HexBytes("0x0000000000000000000000001234567890123456")
+        ]
+        self.data = data or HexBytes("0x0000000000000000000000000000000000000000000000000000000000000001")
+        self.blockNumber = block_number or 12345678
+        self.transactionHash = HexBytes(tx_hash or "0xabcdef1234567890")
+        self.transactionIndex = tx_index
+        self.blockHash = HexBytes(block_hash or "0x1234567890abcdef")
+        self.logIndex = log_index
+        self.removed = removed
+        
+    def __getitem__(self, key):
+        """Support dictionary-style access."""
+        return getattr(self, key)
+        
+    def __setitem__(self, key, value):
+        """Support dictionary-style assignment."""
+        setattr(self, key, value)
+        
+    def __contains__(self, key):
+        """Support 'in' operator."""
+        return hasattr(self, key)
+        
+    def get(self, key, default=None):
+        """Support dict.get() method."""
+        return getattr(self, key, default)
 
 
 @pytest.fixture(autouse=True)
@@ -157,6 +216,7 @@ def mock_async_client() -> AsyncMock:
         def __init__(self):
             self.status_code = 200
             self._json_data = []
+            self.text = ""
         
         def json(self):
             """Return json data to match httpx behavior."""
@@ -186,7 +246,9 @@ def rpc_helper_instance(rpc_config, mock_async_client):
     # Create web3 mock with contract support
     simple_web3 = AsyncMock()
     simple_web3.eth = AsyncMock()
-    simple_web3.eth.block_number = AsyncMock(return_value=12345678)
+    
+    # Use the module-level AwaitableProperty class
+    simple_web3.eth.block_number = AwaitableProperty(12345678)
     
     # Contract creation that returns properly structured contracts
     def create_contract(*args, **kwargs):
@@ -249,23 +311,11 @@ def sample_transaction_receipt() -> Dict[str, Any]:
 @pytest.fixture
 def sample_event_logs() -> List[Dict[str, Any]]:
     """Fixture providing sample event logs."""
-    return [
-        {
-            "address": "0x1234567890123456789012345678901234567890",
-            "topics": [
-                "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
-                "0x0000000000000000000000000000000000000000",
-                "0x0000000000000000000000001234567890123456"
-            ],
-            "data": "0x0000000000000000000000000000000000000000000000000000000000000001",
-            "blockNumber": 12345678,
-            "transactionHash": "0xabcdef1234567890",
-            "transactionIndex": 0,
-            "blockHash": "0x1234567890abcdef",
-            "logIndex": 0,
-            "removed": False
-        }
-    ]
+    
+    # Create a mock log object that behaves like Web3's AttributeDict
+    # It needs to support both attribute access (log.topics) and dict access (log["topics"])
+    log_mock = LogMock()
+    return [log_mock]
 
 
 @pytest.fixture
