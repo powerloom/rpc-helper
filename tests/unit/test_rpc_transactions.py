@@ -6,7 +6,7 @@ including retrieving transactions, receipts, and handling various edge cases
 without making actual network calls.
 """
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import call, patch
 
 from rpc_helper.utils.exceptions import RPCException
 
@@ -153,8 +153,13 @@ class TestRpcTransactionOperations:
         
         # Both should use the same underlying call
         assert mock_web3.eth.get_transaction.call_count == 2
-        mock_web3.eth.get_transaction.assert_called_with(tx_hash_lower)
-        mock_web3.eth.get_transaction.assert_called_with(tx_hash_upper)
+        
+        # Check that both calls were made with the respective hashes
+        expected_calls = [
+            call(tx_hash_lower),
+            call(tx_hash_upper)
+        ]
+        mock_web3.eth.get_transaction.assert_has_calls(expected_calls)
 
     @pytest.mark.unit
     @pytest.mark.asyncio
@@ -169,7 +174,6 @@ class TestRpcTransactionOperations:
         ]
         
         # Mock node switching behavior
-        original_nodes = rpc_helper_instance._nodes
         rpc_helper_instance._nodes = [
             {'web3_client': mock_web3},
             {'web3_client': mock_web3}  # Same mock for simplicity
