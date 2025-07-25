@@ -5,12 +5,11 @@ used across the test suite.
 """
 import asyncio
 from typing import Dict, List, Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 import httpx
 from web3 import AsyncWeb3
-from web3.contract import AsyncContract
 
 from rpc_helper.rpc import RpcHelper
 from rpc_helper.utils.models.settings_model import RPCConfigBase, RPCNodeConfig, ConnectionLimits
@@ -19,6 +18,59 @@ from rpc_helper.utils.models.settings_model import RPCConfigBase, RPCNodeConfig,
 # Test configuration
 TEST_RPC_URL = "https://eth.llamarpc.com"
 TEST_ARCHIVE_URL = "https://eth.llamarpc.com"
+
+# Global state for contract function return values
+_global_function_return_values = {}
+
+
+class ContractFunctionsMock:
+    """Mock class that handles both dictionary and attribute access for contract functions."""
+    def __init__(self):
+        self._function_mocks = {}
+    
+    def _get_function_mock(self, name: str):
+        """Get or create a function mock for the given name."""
+        if name not in self._function_mocks:
+            # Create async mock that returns the configured value from global state
+            async_call = AsyncMock(return_value=_global_function_return_values.get(name, 1000))
+            
+            # Create function mock that has both call() and _encode_transaction_data()
+            function_mock = Mock()
+            function_mock.call = async_call
+            function_mock._encode_transaction_data = Mock(return_value=f"0x{name[:8]}...")
+            
+            # Create factory that returns the function mock when called with args
+            factory = Mock(return_value=function_mock)
+            
+            self._function_mocks[name] = factory
+        
+        return self._function_mocks[name]
+    
+    def __getitem__(self, key):
+        """Handle dictionary-style access: functions["balanceOf"]."""
+        return self._get_function_mock(key)
+    
+    def __getattr__(self, name):
+        """Handle attribute-style access: functions.balanceOf."""
+        return self._get_function_mock(name)
+    
+    def set_return_value(self, function_name: str, value: Any):
+        """Set the return value for a specific function globally."""
+        _global_function_return_values[function_name] = value
+        # Update existing mocks across all instances
+        if function_name in self._function_mocks:
+            factory = self._function_mocks[function_name]
+            function_mock = factory.return_value
+            function_mock.call.return_value = value
+
+
+@pytest.fixture(autouse=True)
+def clear_global_state():
+    """Clear global state before each test."""
+    global _global_function_return_values
+    _global_function_return_values.clear()
+    yield
+    _global_function_return_values.clear()
 
 
 @pytest.fixture
@@ -39,30 +91,39 @@ def rpc_config() -> RPCConfigBase:
 
 @pytest.fixture
 def mock_web3() -> AsyncMock:
-    """Fixture providing a mock Web3 instance."""
+    """Fixture providing a mock Web3 instance with proper contract support."""
     mock = AsyncMock(spec=AsyncWeb3)
     
     # Mock eth module
     mock.eth = AsyncMock()
-    # Create a property that returns a coroutine
-    block_number_mock = AsyncMock(return_value=12345678)
-    type(mock.eth).block_number = property(lambda _: block_number_mock())
+    
+    # Simple block number property
+    mock.eth.block_number = AsyncMock(return_value=12345678)
+    
+    # Mock standard eth methods
     mock.eth.get_transaction = AsyncMock()
     mock.eth.get_transaction_receipt = AsyncMock()
     mock.eth.get_balance = AsyncMock()
     mock.eth.get_logs = AsyncMock()
     mock.eth.call = AsyncMock()
     
-    # Mock contract creation
-    mock.eth.contract = MagicMock()
+    # Contract creation that returns properly structured contracts
+    def create_contract(*args, **kwargs):
+        contract_mock = Mock()
+        contract_mock.functions = ContractFunctionsMock()
+        contract_mock.abi = kwargs.get('abi', [])
+        contract_mock.address = kwargs.get('address', '0x0')
+        return contract_mock
+    
+    mock.eth.contract = Mock(side_effect=create_contract)
     
     return mock
 
 
 @pytest.fixture
-def mock_contract() -> AsyncMock:
-    """Fixture providing a mock contract instance."""
-    mock = AsyncMock(spec=AsyncContract)
+def mock_contract() -> Mock:
+    """Fixture providing a simple mock contract instance."""
+    mock = Mock()
     mock.address = "0x1234567890123456789012345678901234567890"
     mock.abi = [
         {
@@ -80,16 +141,72 @@ def mock_contract() -> AsyncMock:
             "stateMutability": "view"
         }
     ]
+    
+    # Use our ContractFunctionsMock
+    mock.functions = ContractFunctionsMock()
+    
     return mock
 
 
 @pytest.fixture
 def mock_async_client() -> AsyncMock:
-    """Fixture providing a mock HTTP client for testing external calls."""
+    """Fixture providing a simple mock HTTP client."""
     mock = AsyncMock(spec=httpx.AsyncClient)
-    mock.post = AsyncMock()
-    mock.get = AsyncMock()
+    
+    class MockResponse:
+        def __init__(self):
+            self.status_code = 200
+            self._json_data = []
+        
+        def json(self):
+            """Return json data to match httpx behavior."""
+            return self._json_data
+        
+        def set_json_data(self, data):
+            self._json_data = data
+    
+    mock_response = MockResponse()
+    
+    mock.post = AsyncMock(return_value=mock_response)
+    mock.get = AsyncMock(return_value=mock_response)
+    
     return mock
+
+
+@pytest.fixture
+def rpc_helper_instance(rpc_config, mock_async_client):
+    """Fixture providing an initialized RPC helper instance with mocked client."""
+    helper = RpcHelper(rpc_config)
+    
+    # Simple initialization
+    helper._client = mock_async_client
+    helper._initialized = True
+    helper._node_count = 1
+    
+    # Create web3 mock with contract support
+    simple_web3 = AsyncMock()
+    simple_web3.eth = AsyncMock()
+    simple_web3.eth.block_number = AsyncMock(return_value=12345678)
+    
+    # Contract creation that returns properly structured contracts
+    def create_contract(*args, **kwargs):
+        contract_mock = Mock()
+        contract_mock.functions = ContractFunctionsMock()
+        contract_mock.abi = kwargs.get('abi', [])
+        contract_mock.address = kwargs.get('address', '0x0')
+        return contract_mock
+    
+    simple_web3.eth.contract = Mock(side_effect=create_contract)
+    simple_web3.eth.call = AsyncMock()
+    
+    helper._nodes = [
+        {
+            'web3_client': simple_web3,
+            'rpc_url': TEST_RPC_URL
+        }
+    ]
+    
+    yield helper
 
 
 @pytest.fixture
@@ -180,38 +297,6 @@ def mock_abi() -> List[Dict[str, Any]]:
             "type": "event"
         }
     ]
-
-
-@pytest.fixture
-def rpc_helper_instance(rpc_config, mock_async_client):
-    """Fixture providing an initialized RPC helper instance with mocked client."""
-    helper = RpcHelper(rpc_config)
-    
-    # Mock the initialization to avoid actual network calls
-    helper._client = mock_async_client
-    helper._initialized = True
-    helper._node_count = 1
-    
-    # Create mock web3 instance
-    mock_w3_instance = AsyncMock()
-    mock_w3_instance.eth = AsyncMock()
-    # Create a property that returns a coroutine
-    block_number_mock = AsyncMock(return_value=12345678)
-    type(mock_w3_instance.eth).block_number = property(lambda _: block_number_mock())
-    mock_w3_instance.eth.get_transaction = AsyncMock()
-    mock_w3_instance.eth.get_transaction_receipt = AsyncMock()
-    mock_w3_instance.eth.get_logs = AsyncMock()
-    mock_w3_instance.eth.call = AsyncMock()
-    
-    # Initialize with mocked web3
-    helper._nodes = [
-        {
-            'web3_client': mock_w3_instance,
-            'rpc_url': TEST_RPC_URL
-        }
-    ]
-    
-    yield helper
 
 
 @pytest.fixture

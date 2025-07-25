@@ -260,7 +260,7 @@ class TestRpcBalanceOperations:
         # First call fails, second succeeds
         call_count = 0
         
-        def mock_post_side_effect(*args, **kwargs):
+        def mock_post_side_effect(url, json=None, **_kwargs):
             nonlocal call_count
             call_count += 1
             if call_count == 1:
