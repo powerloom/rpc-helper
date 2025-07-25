@@ -3,10 +3,6 @@
 /tests/unit/__pycache__/
 /tests/integration/__pycache__/
 /tests/fixtures/__pycache__/
-/tests/conftest.py
-/tests/README_TESTING.md
-/tests/README.md
-/tests/README.md
 /rpc_helper/__pycache__/
 /rpc_helper/utils/__pycache__/
 /rpc_helper/utils/models/__pycache__/
