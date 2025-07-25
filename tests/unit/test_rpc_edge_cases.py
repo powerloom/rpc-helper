@@ -323,7 +323,11 @@ class TestRpcEdgeCases:
         contract_address = "0x1234567890123456789012345678901234567890"
         
         result = await rpc_helper_instance.get_events_logs(
-            contract_address, 12345678, 12345679, [], event_abi
+            contract_address=contract_address,
+            to_block=12345679,
+            from_block=12345678,
+            topics=[],
+            event_abi=event_abi
         )
         
         assert result == []
