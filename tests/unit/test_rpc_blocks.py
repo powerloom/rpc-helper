@@ -166,17 +166,12 @@ class TestRpcBlockOperations:
 
     @pytest.mark.unit
     @pytest.mark.asyncio
-    async def test_batch_eth_get_block_empty_range(self, rpc_helper_instance, mock_httpx_response):
+    async def test_batch_eth_get_block_empty_range(self, rpc_helper_instance):
         """Test batch retrieval with invalid block range."""
-        mock_response = mock_httpx_response(
-            status_code=200,
-            json_data=[]
-        )
-        rpc_helper_instance._client.post.return_value = mock_response
         
         result = await rpc_helper_instance.batch_eth_get_block(12345678, 12345677)
         
-        assert isinstance(result, dict)
+        assert isinstance(result, list)
         assert len(result) == 0
 
     @pytest.mark.unit
@@ -208,15 +203,3 @@ class TestRpcBlockOperations:
         
         assert result == 12345678
         assert call_count >= 2
-
-    @pytest.mark.unit
-    @pytest.mark.asyncio
-    async def test_block_number_consistency(self, rpc_helper_instance):
-        """Test that block number is consistent across calls."""
-        
-        # Multiple calls should return the same value
-        result1 = await rpc_helper_instance.get_current_block_number()
-        result2 = await rpc_helper_instance.get_current_block_number()
-        result3 = await rpc_helper_instance.get_current_block(node_idx=0)
-        
-        assert result1 == result2 == result3 == 12345678

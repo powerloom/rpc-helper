@@ -5,7 +5,7 @@ These tests focus on verifying the business logic of contract interactions,
 including web3 calls, batch operations, and state overrides.
 """
 import pytest
-from unittest.mock import AsyncMock, patch, Mock
+from unittest.mock import patch
 from hexbytes import HexBytes
 
 from rpc_helper.rpc import get_contract_abi_dict

@@ -31,7 +31,9 @@ class TestRpcBalanceOperations:
         
         address = "0x1234567890123456789012345678901234567890"
         result = await rpc_helper_instance.batch_eth_get_balance_on_block_range(
-            address, 12345678, 12345680
+            address=address,
+            from_block=12345678,
+            to_block=12345680
         )
         
         assert result == [1000000000000000000, 2000000000000000000, 3000000000000000000]
@@ -52,7 +54,9 @@ class TestRpcBalanceOperations:
         
         address = "0x1234567890123456789012345678901234567890"
         result = await rpc_helper_instance.batch_eth_get_balance_on_block_range(
-            address, 12345678, 12345678
+            address=address,
+            from_block=12345678,
+            to_block=12345678
         )
         
         assert result == [1000000000000000000]
@@ -69,7 +73,9 @@ class TestRpcBalanceOperations:
         
         address = "0x1234567890123456789012345678901234567890"
         result = await rpc_helper_instance.batch_eth_get_balance_on_block_range(
-            address, 12345679, 12345678  # Invalid range
+            address=address,
+            from_block=12345679,
+            to_block=12345678  # Invalid range
         )
         
         assert result == []
@@ -90,7 +96,9 @@ class TestRpcBalanceOperations:
         
         address = "0x1234567890123456789012345678901234567890"
         result = await rpc_helper_instance.batch_eth_get_balance_on_block_range(
-            address, 12345678, 12345678
+            address=address,
+            from_block=12345678,
+            to_block=12345678
         )
         
         assert result == [0]
@@ -113,7 +121,9 @@ class TestRpcBalanceOperations:
         
         address = "0x1234567890123456789012345678901234567890"
         result = await rpc_helper_instance.batch_eth_get_balance_on_block_range(
-            address, 12345678, 12345777
+            address=address,
+            from_block=12345678,
+            to_block=12345777
         )
         
         assert len(result) == 100
@@ -134,7 +144,9 @@ class TestRpcBalanceOperations:
         
         with pytest.raises(RPCException) as exc_info:
             await rpc_helper_instance.batch_eth_get_balance_on_block_range(
-                address, 12345678, 12345678
+                address=address,
+                from_block=12345678,
+                to_block=12345678
             )
         
         assert "RPC_BATCH_ETH_GET_BALANCE_ON_BLOCK_RANGE_ERROR" in str(exc_info.value.extra_info)
@@ -149,7 +161,9 @@ class TestRpcBalanceOperations:
         
         with pytest.raises(RPCException) as exc_info:
             await rpc_helper_instance.batch_eth_get_balance_on_block_range(
-                address, 12345678, 12345678
+                address=address,
+                from_block=12345678,
+                to_block=12345678
             )
         
         assert "RPC_BATCH_ETH_GET_BALANCE_ON_BLOCK_RANGE_ERROR" in str(exc_info.value.extra_info)
@@ -164,7 +178,9 @@ class TestRpcBalanceOperations:
             
             with pytest.raises(RPCException) as exc_info:
                 await rpc_helper_instance.batch_eth_get_balance_on_block_range(
-                    address, 12345678, 12345678
+                    address=address,
+                    from_block=12345678,
+                    to_block=12345678
                 )
             
             assert "Rate limit exceeded" in str(exc_info.value.extra_info)
@@ -184,7 +200,9 @@ class TestRpcBalanceOperations:
         # Test with checksummed address
         address = "0x742d35Cc6634C0532925a3b844Bc9e7595f6E123"
         result = await rpc_helper_instance.batch_eth_get_balance_on_block_range(
-            address, 12345678, 12345678
+            address=address,
+            from_block=12345678,
+            to_block=12345678
         )
         
         assert result == [1000000000000000000]
@@ -203,7 +221,9 @@ class TestRpcBalanceOperations:
         
         address = "0x742d35cc6634c0532925a3b844bc9e7595f6e123"
         result = await rpc_helper_instance.batch_eth_get_balance_on_block_range(
-            address, 12345678, 12345678
+            address=address,
+            from_block=12345678,
+            to_block=12345678
         )
         
         assert result == [1000000000000000000]
@@ -226,7 +246,9 @@ class TestRpcBalanceOperations:
         
         address = "0x1234567890123456789012345678901234567890"
         result = await rpc_helper_instance.batch_eth_get_balance_on_block_range(
-            address, 12345678, 12345680
+            address=address,
+            from_block=12345678,
+            to_block=12345680
         )
         
         # Should return all valid results
@@ -248,7 +270,9 @@ class TestRpcBalanceOperations:
         
         address = "0x1234567890123456789012345678901234567890"
         result = await rpc_helper_instance.batch_eth_get_balance_on_block_range(
-            address, 12345678, 12345678
+            address=address,
+            from_block=12345678,
+            to_block=12345678
         )
         
         assert result == [large_balance]
@@ -282,7 +306,9 @@ class TestRpcBalanceOperations:
         
         address = "0x1234567890123456789012345678901234567890"
         result = await rpc_helper_instance.batch_eth_get_balance_on_block_range(
-            address, 12345678, 12345678
+            address=address,
+            from_block=12345678,
+            to_block=12345678
         )
         
         assert result == [1000000000000000000]
