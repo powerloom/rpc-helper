@@ -156,8 +156,8 @@ def mock_web3() -> AsyncMock:
     # Mock eth module
     mock.eth = AsyncMock()
     
-    # Simple block number property
-    mock.eth.block_number = AsyncMock(return_value=12345678)
+    # Use AwaitableProperty for block_number to support concurrent access
+    mock.eth.block_number = AwaitableProperty(12345678)
     
     # Mock standard eth methods
     mock.eth.get_transaction = AsyncMock()
@@ -165,6 +165,9 @@ def mock_web3() -> AsyncMock:
     mock.eth.get_balance = AsyncMock()
     mock.eth.get_logs = AsyncMock()
     mock.eth.call = AsyncMock()
+    
+    # Mock codec (required for event decoding)
+    mock.codec = AsyncMock()
     
     # Contract creation that returns properly structured contracts
     def create_contract(*args, **kwargs):
@@ -234,7 +237,7 @@ def mock_async_client() -> AsyncMock:
 
 
 @pytest.fixture
-def rpc_helper_instance(rpc_config, mock_async_client):
+def rpc_helper_instance(rpc_config, mock_async_client, mock_web3):
     """Fixture providing an initialized RPC helper instance with mocked client."""
     helper = RpcHelper(rpc_config)
     
@@ -243,27 +246,10 @@ def rpc_helper_instance(rpc_config, mock_async_client):
     helper._initialized = True
     helper._node_count = 1
     
-    # Create web3 mock with contract support
-    simple_web3 = AsyncMock()
-    simple_web3.eth = AsyncMock()
-    
-    # Use the module-level AwaitableProperty class
-    simple_web3.eth.block_number = AwaitableProperty(12345678)
-    
-    # Contract creation that returns properly structured contracts
-    def create_contract(*args, **kwargs):
-        contract_mock = Mock()
-        contract_mock.functions = ContractFunctionsMock()
-        contract_mock.abi = kwargs.get('abi', [])
-        contract_mock.address = kwargs.get('address', '0x0')
-        return contract_mock
-    
-    simple_web3.eth.contract = Mock(side_effect=create_contract)
-    simple_web3.eth.call = AsyncMock()
-    
+    # Use the shared mock_web3 fixture
     helper._nodes = [
         {
-            'web3_client': simple_web3,
+            'web3_client': mock_web3,
             'rpc_url': TEST_RPC_URL
         }
     ]
