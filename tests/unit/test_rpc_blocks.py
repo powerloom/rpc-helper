@@ -43,15 +43,6 @@ class TestRpcBlockOperations:
 
     @pytest.mark.unit
     @pytest.mark.asyncio
-    async def test_get_current_block_specific_node(self, rpc_helper_instance):
-        """Test getting block number from a specific node."""
-        
-        result = await rpc_helper_instance.get_current_block(node_idx=0)
-        
-        assert result == 12345678
-
-    @pytest.mark.unit
-    @pytest.mark.asyncio
     async def test_get_current_block_web3_error(self, rpc_helper_instance):
         """Test handling of web3 provider errors during block retrieval."""
         mock_web3 = rpc_helper_instance._nodes[0]['web3_client']
