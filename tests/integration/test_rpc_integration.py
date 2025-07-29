@@ -79,7 +79,7 @@ class TestRpcIntegration:
         
         # Get a recent block
         current_block = await helper.get_current_block_number()
-        test_block = max(1, current_block - 1000)  # Use a block from ~3 hours ago
+        test_block = max(1, current_block - 10)
         
         block_data = await helper.eth_get_block(test_block)
         
@@ -248,8 +248,6 @@ class TestRpcIntegration:
         helper = RpcHelper(integration_config)
         await helper.init()
         
-        # WETH contract address and ABI (well-known contract)
-        usdc_address = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
         balance_abi = [
             {
                 "constant": True,
@@ -264,9 +262,9 @@ class TestRpcIntegration:
         abi_dict = get_contract_abi_dict(balance_abi)
         
         current_block = await helper.get_current_block_number()
-        test_block = current_block - 100  # Go back 100 blocks for stability
+        test_block = current_block - 10
         
-        # Test with zero address (should return some balance)
+        # Test with weth address (should return some balance)
         weth_address = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
         
         result = await helper.batch_eth_call_on_block_range(
