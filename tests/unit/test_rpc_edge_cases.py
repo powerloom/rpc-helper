@@ -65,10 +65,10 @@ class TestRpcEdgeCases:
         mock_web3 = rpc_helper_instance._nodes[0]['web3_client']
         
         # Update the value in the existing AwaitableProperty
-        mock_web3.eth.block_number.value = 999999999999
+        mock_web3.eth.block_number.value = 999999999999999999999999999999
         
         result = await rpc_helper_instance.get_current_block_number()
-        assert result == 999999999999
+        assert result == 999999999999999999999999999999
 
     @pytest.mark.unit
     @pytest.mark.asyncio
@@ -126,13 +126,13 @@ class TestRpcEdgeCases:
         
         # This should handle the decoding error when there's no contract code
         try:
-            result = await rpc_helper_instance.batch_eth_call_on_block_range(
+            await rpc_helper_instance.batch_eth_call_on_block_range(
                 processed_abi, "totalSupply", "0x742d35Cc6634C0532925a3b844Bc9e7595f6E123",
                 12345678, 12345678
             )
-            
-            # If it succeeds, result should be some form of decoded value
-            assert len(result) == 1
+
+            # If it succeeds, we should fail
+            assert False
         except Exception as e:
             # Expected behavior - decoding should fail with empty data
             assert "read 32 bytes" in str(e) or "InsufficientDataBytes" in str(type(e))
@@ -231,9 +231,34 @@ class TestRpcEdgeCases:
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_node_rotation_on_failure(self, rpc_helper_instance):
-        """Test automatic node rotation on RPC failures."""
-        # Import the AwaitableProperty class from conftest
-        from tests.conftest import AwaitableProperty
+        """Test automatic node rotation on RPC failures.
+        
+        Note: The current implementation successfully rotates through nodes within each call,
+        but always starts from node 0 for new calls.
+        """
+        
+        # Create call-counting versions of the awaitable properties
+        class CountingFailingProperty:
+            def __init__(self, error):
+                self.error = error
+                self.call_count = 0
+                
+            def __await__(self):
+                async def coro():
+                    self.call_count += 1
+                    raise self.error
+                return coro().__await__()
+        
+        class CountingAwaitableProperty:
+            def __init__(self, value):
+                self.value = value
+                self.call_count = 0
+                
+            def __await__(self):
+                async def coro():
+                    self.call_count += 1
+                    return self.value
+                return coro().__await__()
         
         # Setup multiple mock nodes
         mock_web3_1 = AsyncMock()
@@ -245,9 +270,10 @@ class TestRpcEdgeCases:
         mock_web3_2.eth = AsyncMock()
         mock_web3_3.eth = AsyncMock()
         
-        mock_web3_1.eth.block_number = FailingAwaitableProperty(Exception("Node 1 down"))
-        mock_web3_2.eth.block_number = FailingAwaitableProperty(Exception("Node 2 down"))
-        mock_web3_3.eth.block_number = AwaitableProperty(12345678)
+        # Make first two nodes fail, third one succeeds - with call counting
+        mock_web3_1.eth.block_number = CountingFailingProperty(Exception("Node 1 down"))
+        mock_web3_2.eth.block_number = CountingFailingProperty(Exception("Node 2 down"))
+        mock_web3_3.eth.block_number = CountingAwaitableProperty(12345678)
         
         rpc_helper_instance._nodes = [
             {'web3_client': mock_web3_1, 'rpc_url': 'http://node1.com'},
@@ -256,9 +282,28 @@ class TestRpcEdgeCases:
         ]
         rpc_helper_instance._node_count = 3
         
+        # This should fail on nodes 0 and 1, then succeed on node 2
         result = await rpc_helper_instance.get_current_block_number()
         
+        # Verify the call succeeded 
         assert result == 12345678
+        
+        # Verify retry behavior: should have tried node 0, then node 1, then succeeded on node 2
+        assert mock_web3_1.eth.block_number.call_count == 1, "Should have tried node 0 once"
+        assert mock_web3_2.eth.block_number.call_count == 1, "Should have tried node 1 once" 
+        assert mock_web3_3.eth.block_number.call_count == 1, "Should have succeeded on node 2"
+
+        # Make all nodes work
+        mock_web3_1.eth.block_number = CountingAwaitableProperty(12345679)
+        mock_web3_2.eth.block_number = CountingAwaitableProperty(12345680)
+        mock_web3_3.eth.block_number = CountingAwaitableProperty(12345681)
+
+        result = await rpc_helper_instance.get_current_block_number()
+        assert result == 12345679
+
+        assert mock_web3_1.eth.block_number.call_count == 1, "Should have succeeded on node 0"
+        assert mock_web3_2.eth.block_number.call_count == 0, "Should have not called node 1" 
+        assert mock_web3_3.eth.block_number.call_count == 0, "Should have not called node 2"
 
     @pytest.mark.unit
     @pytest.mark.asyncio
@@ -297,20 +342,8 @@ class TestRpcEdgeCases:
         mock_response.status_code = 200
         mock_response.set_json_data([{"result": "0x"}])
         
-        # Process raw ABI to dictionary format (this might fail gracefully)
-        try:
-            processed_abi = get_contract_abi_dict(invalid_abi)
-            
-            # Should handle invalid ABI gracefully
-            result = await rpc_helper_instance.batch_eth_call_on_block_range(
-                processed_abi, "invalidFunction", "0x1234567890123456789012345678901234567890",
-                12345678, 12345678
-            )
-            
-            assert len(result) == 1
-        except Exception:
-            # Invalid ABI processing might fail - that's acceptable
-            pass
+        with pytest.raises(Exception):
+            get_contract_abi_dict(invalid_abi)
 
     @pytest.mark.unit
     @pytest.mark.asyncio
@@ -343,8 +376,15 @@ class TestRpcEdgeCases:
         """Test behavior when max retries are exceeded."""
         mock_web3 = rpc_helper_instance._nodes[0]['web3_client']
         
+        # Track call count with a side effect that raises an exception
+        call_count = 0
+        def failing_side_effect(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            raise Exception("Persistent failure")
+        
         # All retries fail
-        mock_web3.eth.get_transaction.side_effect = Exception("Persistent failure")
+        mock_web3.eth.get_transaction.side_effect = failing_side_effect
         
         # Ensure we only have one node to test retry exhaustion
         rpc_helper_instance._nodes = [{'web3_client': mock_web3}]
@@ -354,6 +394,11 @@ class TestRpcEdgeCases:
             await rpc_helper_instance.get_transaction_from_hash("0x123")
         
         assert "RPC_GET_TRANSACTION_ERROR" in str(exc_info.value.extra_info)
+        
+        # Verify that the configured number of retries were attempted
+        # The retry configuration should be accessible via rpc_helper_instance._rpc_settings.retry
+        expected_attempts = rpc_helper_instance._rpc_settings.retry
+        assert call_count == expected_attempts, f"Expected {expected_attempts} retry attempts, but got {call_count}"
 
     @pytest.mark.unit
     @pytest.mark.asyncio
