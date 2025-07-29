@@ -30,13 +30,16 @@ class TestRpcBalanceOperations:
         rpc_helper_instance._client.post.return_value = mock_response
         
         address = "0x1234567890123456789012345678901234567890"
-        result = await rpc_helper_instance.batch_eth_get_balance_on_block_range(
+        results = await rpc_helper_instance.batch_eth_get_balance_on_block_range(
             address=address,
             from_block=12345678,
             to_block=12345680
         )
-        
-        assert result == [1000000000000000000, 2000000000000000000, 3000000000000000000]
+
+        assert isinstance(results, list)
+        assert len(results) == 3
+        assert all(isinstance(result, int) for result in results)
+        assert results == [1000000000000000000, 2000000000000000000, 3000000000000000000]
 
     @pytest.mark.unit
     @pytest.mark.asyncio
@@ -198,7 +201,8 @@ class TestRpcBalanceOperations:
         rpc_helper_instance._client.post.return_value = mock_response
         
         # Test with checksummed address
-        address = "0x742d35Cc6634C0532925a3b844Bc9e7595f6E123"
+        web3 = rpc_helper_instance._nodes[0]['web3_client']
+        address = web3.to_checksum_address("0x742d35Cc6634C0532925a3b844Bc9e7595f6E123")
         result = await rpc_helper_instance.batch_eth_get_balance_on_block_range(
             address=address,
             from_block=12345678,
@@ -219,7 +223,7 @@ class TestRpcBalanceOperations:
         )
         rpc_helper_instance._client.post.return_value = mock_response
         
-        address = "0x742d35cc6634c0532925a3b844bc9e7595f6e123"
+        address = "0x742d35cc6634c0532925a3b844bc9e7595f6e123".lower()
         result = await rpc_helper_instance.batch_eth_get_balance_on_block_range(
             address=address,
             from_block=12345678,
@@ -259,7 +263,7 @@ class TestRpcBalanceOperations:
     @pytest.mark.asyncio
     async def test_batch_eth_get_balance_very_large_balance(self, rpc_helper_instance, mock_httpx_response):
         """Test balance retrieval for address with very large balance."""
-        large_balance = 1000000000000000000000000  # 1 million ETH
+        large_balance = 1000000000000000000000000000000000
         mock_response_data = [{"result": hex(large_balance)}]
         
         mock_response = mock_httpx_response(

@@ -11,6 +11,7 @@ from hexbytes import HexBytes
 import pytest
 import httpx
 from web3 import AsyncWeb3
+from web3 import Web3
 
 from rpc_helper.rpc import RpcHelper
 from rpc_helper.utils.models.settings_model import RPCConfigBase, RPCNodeConfig, ConnectionLimits
@@ -158,6 +159,7 @@ def mock_web3() -> AsyncMock:
     
     # Use AwaitableProperty for block_number to support concurrent access
     mock.eth.block_number = AwaitableProperty(12345678)
+    mock.to_checksum_address = Web3.to_checksum_address
     
     # Mock standard eth methods
     mock.eth.get_transaction = AsyncMock()
