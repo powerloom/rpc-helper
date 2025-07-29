@@ -290,16 +290,20 @@ class TestRpcEventOperations:
         
         contract_address = "0x1234567890123456789012345678901234567890"
         
-        # Mock the get_event_data function
+        # Mock the get_event_data function to verify it's called with correct parameters
         with patch('rpc_helper.rpc.get_event_data') as mock_get_event_data:
-            mock_get_event_data.return_value = {
+            expected_decoded_event = {
                 "event": "Transfer",
                 "args": {
                     "from": "0x0000000000000000000000000000000000000000",
                     "to": "0x1234567890123456789012345678901234567890",
-                    "value": 1
-                }
+                    "value": 1000
+                },
+                "logIndex": 0,
+                "transactionIndex": 0,
+                "blockNumber": 12345678
             }
+            mock_get_event_data.return_value = expected_decoded_event
             
             result = await rpc_helper_instance.get_events_logs(
                 contract_address=contract_address,
@@ -309,5 +313,18 @@ class TestRpcEventOperations:
                 event_abi=event_abi
             )
             
+            # Verify the decoding function was called correctly
+            assert mock_get_event_data.call_count == 1
+            call_args = mock_get_event_data.call_args[0]
+            
+            # Check that get_event_data was called with the correct parameters
+            assert call_args[0] == mock_codec  # codec parameter
+            assert call_args[1] == event_abi["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"]  # ABI for the specific event
+            assert call_args[2] == log_mock  # log data
+            
+            # Verify the result contains the decoded event
             assert len(result) == 1
             assert result[0]["event"] == "Transfer"
+            assert result[0]["args"]["from"] == "0x0000000000000000000000000000000000000000"
+            assert result[0]["args"]["to"] == "0x1234567890123456789012345678901234567890"
+            assert result[0]["args"]["value"] == 1000
