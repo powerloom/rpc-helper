@@ -28,7 +28,7 @@ class LoggingConfig(BaseModel):
     rotation: str = "6 hours"
     retention: str = "2 days"
     compression: str = "tar.xz"
-    format: str = "{time:MMMM D, YYYY > HH:mm:ss!UTC} | {level} | {module} | Message: {message} | {extra}"  # Added module to format
+    format: str = "{time:MMMM D, YYYY > HH:mm:ss!UTC} | {level} | {extra[module]} | Message: {message} | {extra}"  # Use bound module name
 
 
 class RPCNodeConfig(BaseModel):

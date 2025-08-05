@@ -6,28 +6,34 @@ from loguru import logger
 from rpc_helper.utils.models.settings_model import LoggingConfig
 
 
+# Create a library-specific logger instance
+_rpc_logger = logger.bind(library="rpc_helper")
+
+
 def get_logger(module_name: str = "RpcHelper"):
     """
     Get a logger instance with module binding.
     
-    This uses the default loguru logger with just module name binding.
+    This uses the library-scoped logger with module name binding.
     No automatic configuration is performed.
     
     Args:
         module_name (str): Module name to bind to the logger.
     
     Returns:
-        Logger: A bound logger instance.
+        Logger: A bound logger instance scoped to this library.
     """
-    return logger.bind(module=module_name)
+    return _rpc_logger.bind(module=module_name)
 
 
 def configure_rpc_logging(config: LoggingConfig):
     """
-    Configure the global loguru logger for RPC Helper.
+    Configure the library-scoped logger for RPC Helper.
     
     This function must be called explicitly if you want to configure
-    file logging or modify console logging behavior.
+    file logging or modify console logging behavior. It only affects
+    this library's logging and won't interfere with the host application's
+    logging configuration.
     
     Args:
         config (LoggingConfig): The logging configuration to apply.
@@ -49,7 +55,7 @@ def configure_rpc_logging(config: LoggingConfig):
                 def level_filter(record, target_level=level):
                     return record["level"].name == target_level
                 
-                logger.add(
+                _rpc_logger.add(
                     str(log_file.absolute()),
                     level=level,
                     format=config.format,
@@ -70,7 +76,7 @@ def configure_rpc_logging(config: LoggingConfig):
             def level_filter(record, target_level=level):
                 return record["level"].name == target_level
             
-            logger.add(
+            _rpc_logger.add(
                 output,
                 level=level,
                 format=config.format,
@@ -83,11 +89,12 @@ def disable_rpc_file_logging():
     """
     Convenience function to disable file logging by removing file handlers.
     
-    This removes all handlers that write to files, keeping only console output.
+    This removes file handlers from the library-scoped logger only,
+    keeping only console output for this library.
     """
-    # Remove all file handlers (handlers that write to actual files)
+    # Remove all file handlers from the library-scoped logger
     handlers_to_remove = []
-    for handler_id, handler in logger._core.handlers.items():
+    for handler_id, handler in _rpc_logger._core.handlers.items():
         sink = handler._sink
         # Only identify actual file handlers by checking for _file attribute
         # which is specific to Loguru's FileSink class
@@ -96,23 +103,24 @@ def disable_rpc_file_logging():
     
     for handler_id in handlers_to_remove:
         try:
-            logger.remove(handler_id)
+            _rpc_logger.remove(handler_id)
         except ValueError:
             pass  # Handler already removed
 
 
 def enable_debug_logging():
     """
-    Convenience function to enable debug and trace logging to console.
+    Convenience function to enable debug and trace logging to console
+    for the library-scoped logger only.
     """
-    logger.add(
+    _rpc_logger.add(
         sys.stdout,
         level="TRACE",
-        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {module} | {message}",
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]} | {message}",
         filter=lambda record: record["level"].name in ["DEBUG", "TRACE"],
         colorize=True
     )
 
 
-# Default logger instance - uses loguru defaults with module binding
+# Default logger instance - uses library-scoped logger with module binding
 default_logger = get_logger("RpcHelper")
