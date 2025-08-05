@@ -1,0 +1,12 @@
+.python-version
+.venv
+*__pycache__*
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+*.pyz
+.coverage
+*.log
+*.tar.gz
+*.tar.xz
