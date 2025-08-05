@@ -6,3 +6,7 @@
 *.pyd
 *.pyw
 *.pyz
+.coverage
+*.log
+*.tar.gz
+*.tar.xz
