@@ -85,11 +85,13 @@ def disable_rpc_file_logging():
     
     This removes all handlers that write to files, keeping only console output.
     """
-    # Remove all file handlers (handlers that don't write to stdout/stderr)
+    # Remove all file handlers (handlers that write to actual files)
     handlers_to_remove = []
     for handler_id, handler in logger._core.handlers.items():
         sink = handler._sink
-        if hasattr(sink, '_file') or (hasattr(sink, 'write') and sink not in [sys.stdout, sys.stderr]):
+        # Only identify actual file handlers by checking for _file attribute
+        # which is specific to Loguru's FileSink class
+        if hasattr(sink, '_file'):
             handlers_to_remove.append(handler_id)
     
     for handler_id in handlers_to_remove:
