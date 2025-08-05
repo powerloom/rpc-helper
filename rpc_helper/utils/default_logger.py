@@ -107,7 +107,7 @@ def enable_debug_logging():
     """
     logger.add(
         sys.stdout,
-        level="DEBUG",
+        level="TRACE",
         format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {module} | {message}",
         filter=lambda record: record["level"].name in ["DEBUG", "TRACE"],
         colorize=True
