@@ -146,13 +146,25 @@ class RpcHelper(object):
         """
         if self._client is not None:
             return
+        # Determine SSL certificate path based on platform
+        import platform
+        import os
+        
+        ssl_verify = True  # Default to True for automatic certificate verification
+        if platform.system() == "Linux":
+            # Use explicit path on Linux if it exists
+            cert_path = "/etc/ssl/certs/ca-certificates.crt"
+            if os.path.exists(cert_path):
+                ssl_verify = cert_path
+        # For macOS and Windows, let httpx handle certificate verification automatically
+        
         self._async_transport = AsyncHTTPTransport(
             limits=Limits(
                 max_connections=self._rpc_settings.connection_limits.max_connections,
                 max_keepalive_connections=self._rpc_settings.connection_limits.max_keepalive_connections,
                 keepalive_expiry=self._rpc_settings.connection_limits.keepalive_expiry,
             ),
-            verify="/etc/ssl/certs/ca-certificates.crt",  # Explicitly set the certificate path
+            verify=ssl_verify,
         )
         self._client = AsyncClient(
             timeout=Timeout(timeout=15.0),
