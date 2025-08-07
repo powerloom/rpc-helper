@@ -1,0 +1,31 @@
+[flake8]
+max-line-length = 120
+exclude = 
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    .eggs,
+    *.egg,
+    build,
+    dist,
+    .pytest_cache,
+    .mypy_cache,
+    .tox,
+    docs,
+    scripts
+ignore = 
+    # E501: Line too long (handled by black with 120 char limit)
+    E501,
+    # W503: Line break before binary operator (conflicts with black)
+    W503,
+    # E203: Whitespace before ':' (conflicts with black)
+    E203,
+    # E712: Comparison to True/False (sometimes needed for clarity)
+    E712
+per-file-ignores = 
+    # F401: Imported but unused (OK in __init__.py files)
+    __init__.py:F401
+    # Tests can have unused imports for fixtures
+    tests/conftest.py:F401,F811
+    tests/*:F401

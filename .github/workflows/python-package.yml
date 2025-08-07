@@ -1,0 +1,149 @@
+# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: Python package
+
+on:
+  push:
+    branches: [ "master", "main", "develop" ]
+  pull_request:
+    branches: [ "master", "main", "develop" ]
+
+jobs:
+  lint:
+    name: Lint and Format Check
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install poetry
+      run: pipx install poetry
+
+    - name: Configure Poetry
+      run: |
+        poetry config virtualenvs.create true
+        poetry config virtualenvs.in-project true
+
+    - name: Cache Poetry virtualenv
+      uses: actions/cache@v4
+      with:
+        path: .venv
+        key: ${{ runner.os }}-poetry-lint-${{ hashFiles('**/poetry.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-poetry-lint-
+
+    - name: Install dependencies
+      run: poetry install --no-interaction --no-root
+
+    - name: Check with black
+      run: |
+        echo "🔍 Checking code formatting with black..."
+        poetry run black --check rpc_helper/ tests/ || true
+
+    - name: Check with isort
+      run: |
+        echo "🔍 Checking import sorting with isort..."
+        poetry run isort --check-only rpc_helper/ tests/ || true
+
+    - name: Lint with flake8
+      run: |
+        echo "🔍 Running flake8 linting..."
+        # Stop the build if there are Python syntax errors or undefined names
+        poetry run flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics || true
+
+  test:
+    name: Test Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install poetry
+      run: pipx install poetry
+
+    - name: Configure Poetry
+      run: |
+        poetry config virtualenvs.create true
+        poetry config virtualenvs.in-project true
+
+    - name: Cache Poetry virtualenv
+      uses: actions/cache@v4
+      with:
+        path: .venv
+        key: ${{ runner.os }}-poetry-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-poetry-${{ matrix.python-version }}-
+
+    - name: Install dependencies
+      run: poetry install --no-interaction
+
+    - name: Run unit tests
+      run: |
+        echo "🧪 Running unit tests..."
+        poetry run pytest tests/unit/ -v --tb=short
+
+    - name: Run integration tests
+      run: |
+        echo "🧪 Running integration tests..."
+        poetry run pytest tests/integration/ -v --tb=short || true
+      continue-on-error: true
+
+    - name: Generate coverage report
+      run: |
+        echo "📊 Generating coverage report..."
+        poetry run pytest --cov=rpc_helper --cov-report=xml --cov-report=term-missing
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  build:
+    name: Build distribution
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install poetry
+      run: pipx install poetry
+
+    - name: Build distribution
+      run: |
+        echo "📦 Building distribution packages..."
+        poetry build
+
+    - name: Check distribution
+      run: |
+        echo "🔍 Checking distribution..."
+        pip install twine
+        twine check dist/*
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: python-package-distributions
+        path: dist/

@@ -189,3 +189,130 @@ Enable debug mode for detailed logging:
 # Enable debug mode
 rpc = RpcHelper(rpc_settings=rpc_config, debug_mode=True)
 ```
+
+## Development
+
+### Setup
+
+1. Clone the repository:
+```bash
+git clone https://github.com/powerloom/rpc-helper.git
+cd rpc-helper
+```
+
+2. Install dependencies using Poetry:
+```bash
+poetry install
+```
+
+3. Install pre-commit hooks:
+```bash
+poetry run pre-commit install
+```
+
+### Code Quality
+
+This project maintains high code quality standards using automated tools:
+
+#### Tools Used
+- **black** (v25.1.0) - Code formatting
+- **isort** (v6.0.1) - Import sorting  
+- **flake8** (v7.3.0) - Linting
+- **pre-commit** (v4.2.0) - Git hooks
+
+#### Quick Quality Check
+
+```bash
+# Check code quality without making changes
+./scripts/verify_code_quality.sh
+
+# Auto-fix formatting issues
+./scripts/verify_code_quality.sh --fix
+```
+
+#### Manual Commands
+
+```bash
+# Check formatting
+poetry run black --check rpc_helper/ tests/
+poetry run isort --check-only rpc_helper/ tests/
+poetry run flake8 .
+
+# Apply formatting
+poetry run black rpc_helper/ tests/
+poetry run isort rpc_helper/ tests/
+```
+
+### Pre-commit Hooks
+
+Pre-commit hooks automatically verify code quality before each commit:
+
+```bash
+# Install hooks (one-time setup)
+poetry run pre-commit install
+
+# Run manually on all files
+poetry run pre-commit run --all-files
+```
+
+**Checks performed:**
+- Python syntax validation
+- Code formatting (black)
+- Import sorting (isort)
+- Linting (flake8)
+- Large file detection
+- YAML/JSON/TOML validation
+- Merge conflict detection
+
+> **Note**: Pre-commit hooks do not automatically modify files. If issues are detected, the commit will be blocked and you'll need to fix them manually or run `./scripts/verify_code_quality.sh --fix`.
+
+### Testing
+
+Run the test suite using pytest:
+
+```bash
+# Run all tests
+poetry run pytest
+
+# Run unit tests only
+poetry run pytest tests/unit/
+
+# Run integration tests only
+poetry run pytest tests/integration/
+
+# Run with coverage
+poetry run pytest --cov=rpc_helper --cov-report=term-missing
+
+# Run specific test markers
+poetry run pytest -m unit
+poetry run pytest -m integration
+poetry run pytest -m "not slow"
+```
+
+### CI/CD Pipeline
+
+GitHub Actions automatically runs on every push and pull request:
+
+1. **Linting** - Validates code formatting and style
+2. **Testing** - Runs test suite on Python 3.10, 3.11, and 3.12
+3. **Coverage** - Generates and uploads coverage reports
+4. **Building** - Builds distribution packages
+
+### Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Run quality checks (`./scripts/verify_code_quality.sh`)
+5. Run tests (`poetry run pytest`)
+6. Commit your changes (`git commit -m 'Add amazing feature'`)
+7. Push to the branch (`git push origin feature/amazing-feature`)
+8. Open a Pull Request
+
+#### Development Best Practices
+
+- Write tests for new features
+- Maintain or improve code coverage
+- Follow existing code patterns and conventions
+- Update documentation as needed
+- Ensure all quality checks pass before submitting PR

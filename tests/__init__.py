@@ -18,4 +18,5 @@ Usage:
     # Run specific test file
     pytest tests/unit/test_rpc_initialization.py
 """
+
 __version__ = "1.0.0"
