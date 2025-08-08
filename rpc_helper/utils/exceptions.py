@@ -1,5 +1,6 @@
 import json
 
+
 class RPCException(Exception):
     """
     Exception class for handling RPC (Remote Procedure Call) related errors.
@@ -36,14 +37,14 @@ class RPCException(Exception):
         """
         # Create a dictionary with exception details
         ret = {
-            'request': self.request,
-            'response': self.response,
-            'extra_info': self.extra_info,
-            'exception': None,
+            "request": self.request,
+            "response": self.response,
+            "extra_info": self.extra_info,
+            "exception": None,
         }
         # Include the underlying exception if it exists
         if isinstance(self.underlying_exception, Exception):
-            ret.update({'exception': str(self.underlying_exception)})
+            ret.update({"exception": str(self.underlying_exception)})
         return json.dumps(ret)
 
     def __repr__(self):

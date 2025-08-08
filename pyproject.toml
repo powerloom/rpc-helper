@@ -19,6 +19,10 @@ certifi = "^2025.4.26"
 pytest = "^8.1.1"
 pytest-asyncio = "^1.1.0"
 pytest-cov = "^4.1.0"
+pre-commit = "^4.2.0"
+black = "^25.1.0"
+isort = "^6.0.1"
+flake8 = "^7.3.0"
 
 [tool.pytest.ini_options]
 markers = [
@@ -39,6 +43,31 @@ python_functions = ["test_*"]
 addopts = "-v --tb=short --disable-warnings --cov=rpc_helper --cov-report=term-missing"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+
+[tool.black]
+line-length = 120
+target-version = ['py310', 'py311', 'py312', 'py313']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 120
+skip_gitignore = true
+known_first_party = ["rpc_helper"]
+sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
 
 [build-system]
 requires = ["poetry-core"]
