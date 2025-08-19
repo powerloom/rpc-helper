@@ -16,7 +16,7 @@ pydantic = "^2.11.3"
 certifi = "^2025.4.26"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.1.1"
+pytest = "^8.4.1"
 pytest-asyncio = "^1.1.0"
 pytest-cov = "^4.1.0"
 pre-commit = "^4.2.0"
@@ -68,9 +68,6 @@ line_length = 120
 skip_gitignore = true
 known_first_party = ["rpc_helper"]
 sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.4.1"
 
 [build-system]
 requires = ["poetry-core"]
