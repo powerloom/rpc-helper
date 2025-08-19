@@ -15,7 +15,59 @@ loguru = "^0.7.3"
 pydantic = "^2.11.3"
 certifi = "^2025.4.26"
 
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.1.1"
+pytest-asyncio = "^1.1.0"
+pytest-cov = "^4.1.0"
+pre-commit = "^4.2.0"
+black = "^25.1.0"
+isort = "^6.0.1"
+flake8 = "^7.3.0"
 
+[tool.pytest.ini_options]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "slow: Slow running tests",
+    "network: Tests requiring network access",
+    "contract: Tests involving contract calls",
+    "batch: Tests for batch operations",
+    "edge_cases: Tests for edge cases and error handling",
+    "retry: Tests for retry logic",
+    "rate_limit: Tests for rate limiting functionality"
+]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short --disable-warnings --cov=rpc_helper --cov-report=term-missing"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.black]
+line-length = 120
+target-version = ['py310', 'py311', 'py312', 'py313']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 120
+skip_gitignore = true
+known_first_party = ["rpc_helper"]
+sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.1"
