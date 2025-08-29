@@ -1,6 +1,9 @@
 import asyncio
-from sys import stdout
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Union
 
 import eth_abi
 import tenacity
@@ -13,11 +16,9 @@ from web3 import AsyncHTTPProvider, AsyncWeb3, Web3
 from web3._utils.events import get_event_data
 from web3.contract import AsyncContract
 
-from rpc_helper.utils.default_logger import FORMAT, create_level_filter, default_logger
+from rpc_helper.utils.default_logger import get_logger
 from rpc_helper.utils.exceptions import RPCException
 from rpc_helper.utils.models.settings_model import RPCConfigBase
-
-logger = default_logger.bind(module="RpcHelper")
 
 
 def get_contract_abi_dict(abi):
@@ -96,38 +97,33 @@ def get_event_sig_and_abi(event_signatures, event_abis):
 
 class RpcHelper(object):
 
-    def __init__(self, rpc_settings: RPCConfigBase, archive_mode=False, debug_mode=False):
+    def __init__(self, rpc_settings: RPCConfigBase, archive_mode=False, debug_mode=False, logger=None):
         """
         Initializes an instance of the RpcHelper class.
 
         Args:
-            rpc_settings (RPCConfigBase, optional): The RPC configuration settings to use. Defaults to settings.rpc.
+            rpc_settings (RPCConfigBase): The RPC configuration settings to use.
             archive_mode (bool, optional): Whether to operate in archive mode. Defaults to False.
+            debug_mode (bool, optional): Whether to enable debug logging. Defaults to False.
+            logger (Logger, optional): Custom logger instance. If not provided, uses default logger.
         """
         self._archive_mode = archive_mode
+        # TODO: handle debug logging
         self._debug_mode = debug_mode
         self._rpc_settings = rpc_settings
         self._nodes = list()
         self._current_node_index = 0
         self._node_count = 0
         self._initialized = False
-        self._logger = logger
         self._client = None
         self._async_transport = None
 
-        if self._debug_mode:
-            self._logger.add(
-                stdout,
-                level="TRACE",
-                format=FORMAT,
-                filter=create_level_filter("TRACE"),
-            )
-            self._logger.add(
-                stdout,
-                level="DEBUG",
-                format=FORMAT,
-                filter=create_level_filter("DEBUG"),
-            )
+        # Configure logger
+        if logger is not None:
+            self._logger = logger
+        else:
+            self._logger = get_logger("RpcHelper")
+
 
     async def _init_http_clients(self):
         """
@@ -563,18 +559,18 @@ class RpcHelper(object):
         # Use the provided node index
         return await f(node_idx=node_idx)
 
-    async def web3_call(self, tasks, contract_addr, abi):
+    async def web3_call(self, tasks, contract_addr, abi, tasks_block_override=list()):
         """
         Calls the given tasks asynchronously using web3 and returns the response.
 
-        This method executes multiple contract function calls in parallel using asyncio.gather.
+        This method executes multiple contract function calls concurrently using asyncio.gather.
         Each task is a tuple containing the function name and its arguments.
 
         Args:
             tasks (list): List of tuples of (contract functions, contract args) to call. By name.
             contract_addr (str): Address of the contract to call.
             abi (dict): ABI of the contract.
-
+            tasks_block_override (list): List of block numbers to override for each task. If not provided, the default block number will be used. If provided, the length of the list must match the number of tasks.
         Returns:
             list: List of responses from the contract function calls.
 
@@ -590,6 +586,14 @@ class RpcHelper(object):
             before_sleep=self._on_node_exception,
         )
         async def f(node_idx):
+            # check if tasks_block_override is provided and if it is, check if the length of the list matches the number of tasks
+            if tasks_block_override and len(tasks_block_override) != len(tasks):
+                raise RPCException(
+                    request=tasks,
+                    response=None,
+                    underlying_exception=Exception('Tasks block override length does not match the number of tasks'),
+                    extra_info='RPC_WEB3_CALL_ERROR: Tasks block override length does not match the number of tasks',
+                )
             # Check rate limit before proceeding
             if not await self.check_rate_limit(node_idx):
                 raise RPCException(
@@ -607,12 +611,20 @@ class RpcHelper(object):
                     address=contract_addr,
                     abi=abi,
                 )
-
-                # Create a list of web3 tasks to execute in parallel
-                web3_tasks = [contract_obj.functions[task[0]](*task[1]).call() for task in tasks]
+                if tasks_block_override:    
+                    # Create a list of web3 tasks to execute concurrently with the block number override
+                    web3_tasks = [
+                        contract_obj.functions[task[0]](*task[1]).call(block_identifier=tasks_block_override[i]) for i, task in enumerate(tasks)
+                    ]
+                    self._logger.info(f"Executing eth_call tasks: {tasks} with block number override: {tasks_block_override}")
+                else:
+                    # Create a list of web3 tasks to execute concurrently with the default block number
+                    web3_tasks = [
+                        contract_obj.functions[task[0]](*task[1]).call() for task in tasks
+                    ]
 
                 # Execute all tasks in parallel
-                response = await asyncio.gather(*web3_tasks)
+                response = await asyncio.gather(*web3_tasks, return_exceptions=True)
                 return response
             except Exception as e:
                 # Create a serializable version of the tasks for error reporting
@@ -640,7 +652,7 @@ class RpcHelper(object):
         # Start with node index 0
         return await f(node_idx=0)
 
-    async def web3_call_with_override(self, tasks, contract_addr, abi, overrides):
+    async def web3_call_with_override(self, tasks, contract_addr, abi, overrides, tasks_block_override=list()):
         """
         Calls the given tasks asynchronously using web3 and returns the response.
         Supports overriding of the contract state.
@@ -653,7 +665,7 @@ class RpcHelper(object):
             contract_addr (str): Address of the contract to call.
             abi (dict): ABI of the contract.
             overrides (dict): State overrides for the call.
-
+            tasks_block_override (list): List of block numbers to override for each task. If not provided, the default block number will be used. If provided, the length of the list must match the number of tasks.
         Returns:
             list: List of responses from the contract function calls.
 
@@ -671,6 +683,13 @@ class RpcHelper(object):
         async def f(node_idx):
             try:
                 # Get the node to use for this request
+                if tasks_block_override and len(tasks_block_override) != len(tasks):
+                    raise RPCException(
+                        request=tasks,
+                        response=None,
+                        underlying_exception=Exception('Tasks block override length does not match the number of tasks'),
+                        extra_info='RPC_WEB3_CALL_WITH_OVERRIDE_ERROR: Tasks block override length does not match the number of tasks',
+                    )
                 node = self._nodes[node_idx]
 
                 # Create contract object
@@ -681,7 +700,7 @@ class RpcHelper(object):
 
                 # Create a list of web3 tasks with state overrides
                 web3_tasks = []
-                for task in tasks:
+                for i, task in enumerate(tasks):
                     function_name, args = task
 
                     # Encode the function call data
@@ -693,11 +712,16 @@ class RpcHelper(object):
                         "to": contract_addr,
                         "data": call_data,
                     }
-
-                    # Add the task to the list
-                    web3_tasks.append(
-                        node["web3_client"].eth.call(payload, state_override=overrides),
-                    )
+                    if tasks_block_override:
+                        # Add the task to the list
+                        web3_tasks.append(
+                            node['web3_client'].eth.call(payload, state_override=overrides, block_identifier=tasks_block_override[i]),
+                        )
+                    else:
+                        # Add the task to the list
+                        web3_tasks.append(
+                            node['web3_client'].eth.call(payload, state_override=overrides),
+                        )
 
                 # Execute all tasks in parallel
                 raw_results = await asyncio.gather(*web3_tasks)
