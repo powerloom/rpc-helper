@@ -266,7 +266,7 @@ class TestRpcContractOperations:
 
         assert len(result) == 1
         assert isinstance(result[0], HexBytes)
-        assert result[0].hex() == "00000000000000000000000000000000000000000000000000000000000003e8"
+        assert result[0].hex() == "0x00000000000000000000000000000000000000000000000000000000000003e8"
 
     @pytest.mark.unit
     @pytest.mark.asyncio
