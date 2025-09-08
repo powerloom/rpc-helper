@@ -236,6 +236,8 @@ class RpcHelper(object):
         rate_limit_key = f"rpc_helper_{key}"
 
         try:
+            if not self._rpc_settings.rate_limit_config.enabled:
+                return True
             # Check if HTTP client is initialized
             if self._client is None:
                 self._logger.error("HTTP client not initialized")
@@ -1248,7 +1250,9 @@ class RpcHelper(object):
                 codec: ABICodec = web3_provider.codec
                 all_events = []
                 for log in event_log:
-                    abi = event_abi.get(log.topics[0].hex(), "")
+                    abi = event_abi.get("0x" + log.topics[0].hex(), "")
+
+                    # abi = event_abi.get(log.topics[0].hex(), "")
                     evt = get_event_data(codec, abi, log)
                     all_events.append(evt)
 
