@@ -47,6 +47,12 @@ class ConnectionLimits(BaseModel):
     keepalive_expiry: int = 300
 
 
+class RateLimitConfig(BaseModel):
+    """Rate Limiter Config"""
+    rate_limiter_url: Optional[str] = "http://rate-limiter:8000/check"
+    enabled: Optional[bool] = True
+
+
 class RPCConfigBase(BaseModel):
     """Base RPC configuration model."""
 
@@ -56,6 +62,7 @@ class RPCConfigBase(BaseModel):
     retry: int
     request_time_out: int
     connection_limits: ConnectionLimits
+    rate_limit_config: Optional[RateLimitConfig] = RateLimitConfig()
 
 
 class RPCConfigFull(RPCConfigBase):
