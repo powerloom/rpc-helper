@@ -1274,9 +1274,9 @@ class RpcHelper(object):
                 codec: ABICodec = web3_provider.codec
                 all_events = []
                 for log in event_log:
-                    abi = event_abi.get(log.topics[0].hex(), "")
-
-                    # abi = event_abi.get(log.topics[0].hex(), "")
+                    # Web3 7: HexBytes.hex() omits 0x; event_abi keys are typically 0x-prefixed.
+                    topic_key = Web3.to_hex(log.topics[0])
+                    abi = event_abi.get(topic_key, "")
                     evt = get_event_data(codec, abi, log)
                     all_events.append(evt)
 

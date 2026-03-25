@@ -8,9 +8,9 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10.13"
-web3 = "^6.20.4"
+web3 = "^7.0.0"
 tenacity = "^9.1.2"
-httpx = "^0.28.1"
+httpx = ">=0.27.1,<0.29"
 loguru = "^0.7.3"
 pydantic = "^2.12.5"
 certifi = "^2025.11.12"
