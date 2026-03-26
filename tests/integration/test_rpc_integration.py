@@ -11,7 +11,6 @@ Tests cover all public methods that make external RPC calls using reliable contr
 """
 
 import asyncio
-import os
 
 import httpx
 import pytest
@@ -19,13 +18,14 @@ import pytest
 from rpc_helper.rpc import RpcHelper, get_contract_abi_dict
 from rpc_helper.utils.exceptions import RPCException
 from rpc_helper.utils.models.settings_model import RPCConfigBase, RPCNodeConfig
+from tests.rpc_test_defaults import TEST_RPC_URL
 
 # Well-known Ethereum mainnet contract addresses
 WETH_ADDRESS = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
 USDC_ADDRESS = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 UNISWAP_V3_FACTORY = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
 VITALIK_ADDRESS = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
-KNOWN_TX_HASH = "0x5c504ed432cb51138bcf09aa5e8a410dd4a1e204ef84bfed1be16dfba1b22060"  # First ETH transaction
+KNOWN_TX_HASH = "0x5c504ed432cb51138bcf09aa5e8a410dd4a1e204ef84bfed1be16dfba1b22060"  # First ETH transaction (pre-Byzantium: no status on receipt)
 UNISWAP_V2_FACTORY = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"
 
 # Common ABIs for testing
@@ -93,8 +93,7 @@ class TestRpcIntegration:
     @pytest.fixture(scope="class")
     def integration_config(self):
         """Provide configuration for integration tests."""
-        # Use environment variables for RPC URLs to avoid hardcoding
-        rpc_url = os.getenv("TEST_RPC_URL", "https://eth.llamarpc.com")
+        rpc_url = TEST_RPC_URL
 
         return RPCConfigBase(
             full_nodes=[RPCNodeConfig(url=rpc_url)],
@@ -227,7 +226,9 @@ class TestRpcIntegration:
         assert receipt is not None
         assert hasattr(receipt, "transactionHash") or "transactionHash" in receipt
         assert hasattr(receipt, "blockNumber") or "blockNumber" in receipt
-        assert hasattr(receipt, "status") or "status" in receipt
+        assert hasattr(receipt, "gasUsed") or "gasUsed" in receipt
+        if hasattr(receipt, "status"):
+            assert receipt.status in (0, 1)
 
     @pytest.mark.integration
     @pytest.mark.network
@@ -243,8 +244,9 @@ class TestRpcIntegration:
         assert isinstance(receipt, dict)
         assert receipt["transactionHash"].lower() == KNOWN_TX_HASH.lower()
         assert "blockNumber" in receipt
-        assert "status" in receipt
-        assert receipt["status"] in ["0x0", "0x1"]
+        assert "gasUsed" in receipt
+        if "status" in receipt:
+            assert receipt["status"] in ["0x0", "0x1"]
 
     # Balance Tests
     @pytest.mark.integration
@@ -559,7 +561,7 @@ class TestRpcIntegration:
         multi_config = RPCConfigBase(
             full_nodes=[
                 RPCNodeConfig(url="https://invalid-rpc-url-1.com"),  # Should fail
-                RPCNodeConfig(url="https://eth.llamarpc.com"),  # Should succeed
+                RPCNodeConfig(url=TEST_RPC_URL),  # Should succeed
                 RPCNodeConfig(url="https://invalid-rpc-url-2.com"),  # Should fail
             ],
             retry=2,
@@ -582,8 +584,8 @@ class TestRpcIntegration:
         """Test archive mode functionality with real RPC endpoint."""
         # Create archive-specific config
         archive_config = RPCConfigBase(
-            full_nodes=[RPCNodeConfig(url="https://eth.llamarpc.com")],
-            archive_nodes=[RPCNodeConfig(url="https://eth.llamarpc.com")],
+            full_nodes=[RPCNodeConfig(url=TEST_RPC_URL)],
+            archive_nodes=[RPCNodeConfig(url=TEST_RPC_URL)],
             retry=2,
             request_time_out=30,
             connection_limits={
@@ -705,10 +707,10 @@ class TestRpcNetworkConnectivity:
             except Exception:
                 return False
 
-        # Test common endpoints
+        # At least one public endpoint should respond (avoid providers that block datacenter IPs)
         endpoints = [
-            "https://eth.llamarpc.com",
             "https://ethereum.publicnode.com",
+            "https://cloudflare-eth.com",
             "https://rpc.ankr.com/eth",
         ]
 
@@ -733,7 +735,7 @@ class TestContractInteractionReliability:
     @pytest.fixture(scope="class")
     def integration_config(self):
         """Provide configuration for integration tests."""
-        rpc_url = os.getenv("TEST_RPC_URL", "https://eth.llamarpc.com")
+        rpc_url = TEST_RPC_URL
 
         return RPCConfigBase(
             full_nodes=[RPCNodeConfig(url=rpc_url)],

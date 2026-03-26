@@ -16,9 +16,7 @@ from web3 import AsyncWeb3, Web3
 from rpc_helper.rpc import RpcHelper
 from rpc_helper.utils.models.settings_model import ConnectionLimits, RPCConfigBase, RPCNodeConfig
 
-# Test configuration
-TEST_RPC_URL = "https://eth.llamarpc.com"
-TEST_ARCHIVE_URL = "https://eth.llamarpc.com"
+from tests.rpc_test_defaults import TEST_ARCHIVE_URL, TEST_RPC_URL
 
 # Global state for contract function return values
 _global_function_return_values = {}

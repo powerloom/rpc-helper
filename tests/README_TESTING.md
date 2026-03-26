@@ -68,7 +68,7 @@ pytest --cov=rpc_helper --cov-report=html
 ## Configuration
 
 ### Environment Variables
-- `TEST_RPC_URL`: RPC endpoint for integration tests (default: https://eth.llamarpc.com)
+- `TEST_RPC_URL`: RPC endpoint for integration tests (default: https://ethereum.publicnode.com). `TEST_ARCHIVE_URL` defaults to the same value if unset.
 
 ### Test Configuration
 - **Timeout**: 30 seconds for integration tests

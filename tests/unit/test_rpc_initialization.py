@@ -12,6 +12,7 @@ import pytest
 
 from rpc_helper.rpc import RpcHelper
 from rpc_helper.utils.models.settings_model import ConnectionLimits, RPCConfigBase, RPCNodeConfig
+from tests.rpc_test_defaults import TEST_RPC_URL
 
 
 class TestRpcHelperInitialization:
@@ -112,7 +113,7 @@ class TestRpcHelperInitialization:
         assert node is not None
         assert "web3_client" in node
         assert "rpc_url" in node
-        assert node["rpc_url"] == "https://eth.llamarpc.com"
+        assert node["rpc_url"] == TEST_RPC_URL
 
     @pytest.mark.unit
     @pytest.mark.asyncio
